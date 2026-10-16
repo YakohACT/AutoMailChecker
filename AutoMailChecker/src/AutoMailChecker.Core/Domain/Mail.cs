@@ -8,3 +8,6 @@ public sealed record MailHeader(MailRef Ref, string MessageId, string From, stri
 
 /// <summary>AI へ渡す唯一のデータ（読み取り専用）。資格情報やフォルダー一覧は含めない。</summary>
 public sealed record MailSnapshot(MailHeader Header, string BodyText, IReadOnlyList<string> AttachmentNames);
+
+/// <summary>検索で見つかったメールと、サーバーが受け取った日時。お試し仕分けで受信日時順に間引くのに使う。</summary>
+public sealed record FoundMail(MailRef Ref, DateTimeOffset Received);

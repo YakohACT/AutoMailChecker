@@ -47,6 +47,12 @@ public interface IQueueRepository
 
     /// <summary>未処理（処理待ちと処理中）の件数。トレイのツールチップに出す。</summary>
     Task<int> CountPendingAsync(CancellationToken ct);
+
+    /// <summary>そのお試しの回で、まだ処理していない件数。0 になったら回を終える。</summary>
+    Task<int> CountPendingForTrialAsync(long trialRunId, CancellationToken ct);
+
+    /// <summary>移動する直前に、判定結果と移動先の控えを残す。</summary>
+    Task SavePendingMoveAsync(long id, string pendingMove, CancellationToken ct);
 }
 
 /// <summary>監視フォルダーの状態（folder_state）。</summary>
@@ -61,6 +67,9 @@ public interface IFolderStateRepository
 public interface IProcessedMessageRepository
 {
     Task<bool> ContainsAsync(string accountId, string messageId, CancellationToken ct);
+
+    /// <summary>処理済みとして記録する。受信トレイへ戻したメールが、新着として再び仕分けられないようにする。</summary>
+    Task MarkProcessedAsync(string accountId, string messageId, CancellationToken ct);
 }
 
 /// <summary>判定履歴（judgement とその子の表）。</summary>
@@ -76,8 +85,18 @@ public interface IJudgementRepository
 
     Task<IReadOnlyList<JudgementRecord>> QueryAsync(JudgementQuery query, CancellationToken ct);
 
+    /// <summary>絞り込んだ判定履歴全体の件数（ページに関係なく数える）。</summary>
+    Task<HistorySummary> SummarizeAsync(JudgementQuery query, CancellationToken ct);
+
+    /// <summary>直近の判定にかかった時間の平均。件数が minSamples に満たなければ null。お試しの見込み時間に使う。</summary>
+    Task<TimeSpan?> AverageDurationAsync(int sampleSize, int minSamples, CancellationToken ct);
+
     Task<MoveRecord?> GetMoveRecordAsync(long judgementId, CancellationToken ct);
 
+    /// <summary>
+    /// 「元に戻す」の結果を記録する。戻した（restored）か、すでに別の場所にあった（not_found）なら戻した日時も入れる。
+    /// 失敗（failed）なら日時は入れず、もう一度試せるようにする。
+    /// </summary>
     Task MarkUndoneAsync(long moveRecordId, UndoResult result, CancellationToken ct);
 
     /// <summary>誤判定を記録し、その判定を保持期間後も残す。correctItemId が null なら「どの項目でもない」、「ad」は広告。</summary>

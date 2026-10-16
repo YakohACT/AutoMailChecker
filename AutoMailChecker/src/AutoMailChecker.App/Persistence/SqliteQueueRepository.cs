@@ -7,7 +7,7 @@ namespace AutoMailChecker.Persistence;
 internal sealed class SqliteQueueRepository(SqliteDb db) : IQueueRepository
 {
     private const string Columns =
-        "id, account_id, folder, uidvalidity, uid, trial_run_id, state, attempts, last_error, enqueued_at";
+        "id, account_id, folder, uidvalidity, uid, trial_run_id, state, attempts, last_error, enqueued_at, pending_move";
 
     public async Task<bool> EnqueueAsync(MailRef mail, long? trialRunId, CancellationToken ct)
     {
@@ -89,6 +89,22 @@ internal sealed class SqliteQueueRepository(SqliteDb db) : IQueueRepository
         return Convert.ToInt32(await command.ExecuteScalarAsync(ct).ConfigureAwait(false));
     }
 
+    public async Task<int> CountPendingForTrialAsync(long trialRunId, CancellationToken ct)
+    {
+        await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
+        await using var command = connection.CreateCommand(
+            "SELECT COUNT(*) FROM queue_item WHERE trial_run_id = $id AND state IN ('waiting', 'processing');", null)
+            .With("$id", trialRunId);
+        return Convert.ToInt32(await command.ExecuteScalarAsync(ct).ConfigureAwait(false));
+    }
+
+    public async Task SavePendingMoveAsync(long id, string pendingMove, CancellationToken ct)
+    {
+        await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
+        await connection.ExecuteAsync("UPDATE queue_item SET pending_move = $pending WHERE id = $id;", null, ct,
+            ("$id", id), ("$pending", pendingMove)).ConfigureAwait(false);
+    }
+
     /// <summary>起動時に、処理中のまま残った行を処理待ちに戻す。</summary>
     internal async Task<int> ResetProcessingAsync(CancellationToken ct)
     {
@@ -136,5 +152,6 @@ internal sealed class SqliteQueueRepository(SqliteDb db) : IQueueRepository
         },
         Attempts: reader.GetInt32(7),
         LastError: reader.GetNullableString(8),
-        EnqueuedAt: SqliteDb.ParseTimestamp(reader.GetString(9)));
+        EnqueuedAt: SqliteDb.ParseTimestamp(reader.GetString(9)),
+        PendingMove: reader.GetNullableString(10));
 }

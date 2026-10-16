@@ -17,6 +17,8 @@ public sealed class ImapMailReader(ImapAccountSession session, BodyPreprocessor 
     private static readonly FetchRequest HeaderRequest =
         new(MessageSummaryItems.UniqueId | MessageSummaryItems.Envelope | MessageSummaryItems.InternalDate);
 
+    private static readonly FetchRequest DateRequest = new(MessageSummaryItems.UniqueId | MessageSummaryItems.InternalDate);
+
     private static readonly FetchRequest SnapshotRequest =
         new(MessageSummaryItems.UniqueId | MessageSummaryItems.Envelope | MessageSummaryItems.InternalDate
             | MessageSummaryItems.BodyStructure);
@@ -49,15 +51,44 @@ public sealed class ImapMailReader(ImapAccountSession session, BodyPreprocessor 
             return new MailSnapshot(ToHeader(mail, summary), body, attachments);
         }, retryOnDisconnect: true, ct);
 
-    public Task<IReadOnlyList<MailRef>> SearchByDateAsync(string folderName, DateOnly from, DateOnly to, CancellationToken ct) =>
-        session.UseAsync<IReadOnlyList<MailRef>>(async (client, token) =>
+    public Task<IReadOnlyList<FoundMail>> SearchByDateAsync(string folderName, DateOnly from, DateOnly to, CancellationToken ct) =>
+        session.UseAsync<IReadOnlyList<FoundMail>>(async (client, token) =>
         {
             var folder = await ImapFolders.OpenAsync(client, folderName, FolderAccess.ReadOnly, token).ConfigureAwait(false);
             // UID SEARCH SINCE ＜開始日＞ BEFORE ＜終了日の翌日＞（サーバー側の受信日で比べる）
             var query = SearchQuery.DeliveredAfter(from.ToDateTime(TimeOnly.MinValue))
                 .And(SearchQuery.DeliveredBefore(to.AddDays(1).ToDateTime(TimeOnly.MinValue)));
             var uids = await folder.SearchAsync(query, token).ConfigureAwait(false);
-            return uids.Select(uid => new MailRef(AccountId, folderName, folder.UidValidity, uid.Id)).ToList();
+            if (uids.Count == 0)
+            {
+                return [];
+            }
+
+            // 間引くときに受信日時順に並べるので、受信日時（INTERNALDATE）も取る
+            var summaries = await folder.FetchAsync(uids, DateRequest, token).ConfigureAwait(false);
+            return summaries
+                .Select(s => new FoundMail(
+                    new MailRef(AccountId, folderName, folder.UidValidity, s.UniqueId.Id),
+                    s.InternalDate ?? DateTimeOffset.MinValue))
+                .ToList();
+        }, retryOnDisconnect: true, ct);
+
+    public Task<MailRef?> FindByMessageIdAsync(string folderName, string messageId, CancellationToken ct) =>
+        session.UseAsync<MailRef?>(async (client, token) =>
+        {
+            IMailFolder folder;
+            try
+            {
+                folder = await ImapFolders.OpenAsync(client, folderName, FolderAccess.ReadOnly, token).ConfigureAwait(false);
+            }
+            catch (FolderNotFoundException)
+            {
+                return null;
+            }
+
+            // UID SEARCH HEADER Message-ID ＜値＞
+            var found = await folder.SearchAsync(SearchQuery.HeaderContains("Message-ID", messageId), token).ConfigureAwait(false);
+            return found.Count > 0 ? new MailRef(AccountId, folderName, folder.UidValidity, found[^1].Id) : null;
         }, retryOnDisconnect: true, ct);
 
     private static async Task<(IMailFolder Folder, IMessageSummary Summary)> FetchSummaryAsync(

@@ -57,7 +57,7 @@ public static class AppHost
         // IMAP。アカウントは起動時の設定で決まる（追加・削除は再起動で反映）
         services.AddSingleton<ImapConnector>();
         services.AddSingleton<IMailAccountRegistry>(sp => new ImapAccountRegistry(
-            sp.GetRequiredService<IConfigProvider>().Current.Accounts,
+            sp.GetRequiredService<IConfigProvider>(),
             sp.GetRequiredService<ImapConnector>(),
             sp.GetRequiredService<BodyPreprocessor>(),
             sp.GetRequiredService<TimeProvider>(),
@@ -72,6 +72,10 @@ public static class AppHost
         services.AddSingleton<ILlmRuntime>(sp => sp.GetRequiredService<LlamaServerManager>());
         services.AddSingleton<IMailClassifier>(sp => new LlamaClassifier(
             sp.GetRequiredService<LlamaServerManager>(), sp.GetRequiredService<ILogger<LlamaClassifier>>()));
+
+        // 振り分け（元に戻す、お試し仕分け）
+        services.AddSingleton<IUndoService, UndoService>();
+        services.AddSingleton<ITrialService, TrialRunner>();
 
         // 終了時は処理中の1通を最大2分待ち、そのあと llama-server を止める
         services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromMinutes(3));

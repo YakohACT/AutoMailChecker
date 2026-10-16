@@ -1,0 +1,145 @@
+<Window x:Class="AutoMailChecker.Windows.Trial.TrialWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:AutoMailChecker.Windows.Trial"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=local:TrialViewModel}"
+        Title="お試し仕分け - AutoMailChecker"
+        Width="640" SizeToContent="Height" MinHeight="300" ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen"
+        FontSize="13">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AutoMailChecker.Windows;component/Ui/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <StackPanel Margin="20">
+        <!-- 設定 -->
+        <StackPanel Visibility="{Binding IsSetup, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="過去のメールで仕分けを試します" Style="{StaticResource SectionTitle}" />
+            <TextBlock TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" Margin="0,0,0,16"
+                       Text="期間を指定した過去のメールだけを判定します。新着メールの監視とは独立して動き、新着が届けばそちらを先に処理します。" />
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="110" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="期間（受信日）" Style="{StaticResource FieldLabel}" />
+                <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <DatePicker SelectedDate="{Binding From}" />
+                    <TextBlock Text="〜" Margin="8,0" VerticalAlignment="Center" />
+                    <DatePicker SelectedDate="{Binding To}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="1" Text="アカウント" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" />
+                <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Accounts}" Margin="0,0,0,10">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox Content="{Binding Id}" IsChecked="{Binding IsSelected}" Margin="0,0,16,4" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Grid.Row="2" Text="対象フォルダー" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,3,6,0" />
+                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBox Text="{Binding Folder, UpdateSourceTrigger=PropertyChanged}" Width="180" HorizontalAlignment="Left"
+                             VerticalContentAlignment="Center" />
+                    <TextBlock Text="既定は受信トレイ（INBOX）。ほかのフォルダーを選ぶと、実行方法は「結果の表示のみ」になります。"
+                               Foreground="{StaticResource SubtleText}" Margin="0,3,0,0" FontSize="12" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="3" Text="実行方法" Style="{StaticResource FieldLabel}" />
+                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <RadioButton Content="結果の表示のみ（移動しない）" IsChecked="{Binding PreviewMode}" Margin="0,0,20,0" GroupName="Mode" />
+                    <RadioButton Content="実際に移動する" IsChecked="{Binding MoveMode}" IsEnabled="{Binding CanMove}" GroupName="Mode" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="4" Text="件数の上限" Style="{StaticResource FieldLabel}" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBox Text="{Binding MaxMessagesText, UpdateSourceTrigger=PropertyChanged}" Width="70" VerticalContentAlignment="Center" />
+                    <TextBlock Text="件（超える場合は期間内から均等に間引きます）" Foreground="{StaticResource SubtleText}"
+                               Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12" />
+                </StackPanel>
+            </Grid>
+
+            <Border Style="{StaticResource Panel}" Margin="0,6,0,14" Padding="10">
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="対象を数える" Command="{Binding EstimateCommand}" />
+                    <TextBlock Text="{Binding EstimateText}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="開始" Command="{Binding StartCommand}" IsDefault="True" Margin="0" MinWidth="100" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 実行中 -->
+        <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="お試し仕分けを実行しています" Style="{StaticResource SectionTitle}" />
+            <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Height="14" Margin="0,4,0,8" />
+            <TextBlock Text="{Binding ProgressText}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
+            <TextBlock Text="{Binding RunModeText}" Foreground="{StaticResource SubtleText}" Margin="0,0,0,6" />
+            <TextBlock Text="このダイアログを閉じても、裏で続きます。終わるとトレイの表示が戻ります。"
+                       Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,0,0,16" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="中止" Command="{Binding CancelCommand}" Margin="0" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 完了 -->
+        <StackPanel Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ReportTitle}" Style="{StaticResource SectionTitle}" TextWrapping="Wrap" />
+            <Border Style="{StaticResource Panel}" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="項目ごとの件数（移動・移動予定）" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                    <ItemsControl ItemsSource="{Binding ItemCounts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Label}" />
+                                    <TextBlock Grid.Column="1" FontWeight="SemiBold">
+                                        <Run Text="{Binding Count, Mode=OneWay}" /><Run Text=" 件" />
+                                    </TextBlock>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding ReportCountsText}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+            <TextBlock Text="{Binding AccuracyText}" TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" Margin="0,0,0,16" />
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Content="結果を判定履歴で見る" Command="{Binding OpenHistoryCommand}" />
+                <Button Content="この回の移動をまとめて戻す" Command="{Binding RollbackCommand}"
+                        Visibility="{Binding CanRollback, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="もう一度試す" Command="{Binding NewTrialCommand}" Margin="0" />
+            </WrapPanel>
+        </StackPanel>
+
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{StaticResource StatusFailed}" Margin="0,12,0,0" />
+    </StackPanel>
+</Window>

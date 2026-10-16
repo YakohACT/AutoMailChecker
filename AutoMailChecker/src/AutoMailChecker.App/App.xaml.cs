@@ -1,6 +1,9 @@
 ﻿using System.Windows;
 using AutoMailChecker.Core;
+using AutoMailChecker.Core.Configuration;
+using AutoMailChecker.Core.State;
 using AutoMailChecker.Hosting;
+using AutoMailChecker.Windows;
 using AutoMailChecker.Windows.Tray;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -18,6 +21,7 @@ public partial class App : Application
     private Mutex? _singleInstance;
     private IHost? _host;
     private TrayApp? _tray;
+    private AppWindows? _windows;
     private ILogger<App>? _logger;
     private bool _exiting;
 
@@ -46,10 +50,19 @@ public partial class App : Application
             var host = _host;
             await Task.Run(() => host.StartAsync());
 
-            // await の後は UI スレッドに戻るので、ここでトレイを作る
-            var status = _host.Services.GetRequiredService<IAppStatus>();
+            // await の後は UI スレッドに戻るので、ここでトレイとウィンドウの窓口を作る
+            var services = _host.Services;
+            var status = services.GetRequiredService<IAppStatus>();
+            _windows = new AppWindows(
+                services.GetRequiredService<IStateStore>(),
+                services.GetRequiredService<IConfigProvider>(),
+                services.GetRequiredService<IUndoService>(),
+                services.GetRequiredService<ITrialService>(),
+                status);
             _tray = new TrayApp();
             _tray.CommandInvoked += OnTrayCommand;
+            _tray.SetCommandAvailable(TrayCommand.OpenHistory, true);
+            _tray.SetCommandAvailable(TrayCommand.OpenTrial, true);
             _tray.Show(status.Current);
             status.Changed += (_, snapshot) => Dispatcher.InvokeAsync(() => _tray?.Update(snapshot));
 
@@ -81,6 +94,12 @@ public partial class App : Application
     {
         switch (command)
         {
+            case TrayCommand.OpenHistory:
+                _windows?.ShowHistory();
+                break;
+            case TrayCommand.OpenTrial:
+                _windows?.ShowTrial();
+                break;
             case TrayCommand.Exit:
                 await ExitAsync();
                 break;
@@ -100,6 +119,7 @@ public partial class App : Application
 
         _exiting = true;
         _logger?.LogInformation("終了します。");
+        _windows?.CloseAll();
         _tray?.Dispose();
         _tray = null;
 

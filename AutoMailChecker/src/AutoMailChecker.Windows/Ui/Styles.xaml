@@ -1,0 +1,71 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- 各ウィンドウで共通に使う見た目。状態の色は判定履歴の「移動先」の文字色にも使う -->
+    <SolidColorBrush x:Key="SubtleText" Color="#5F6368" />
+    <SolidColorBrush x:Key="PanelBackground" Color="#F6F7F9" />
+    <SolidColorBrush x:Key="PanelBorder" Color="#DADCE0" />
+    <SolidColorBrush x:Key="StatusMoved" Color="#1B7F3B" />
+    <SolidColorBrush x:Key="StatusPlanned" Color="#1A5FB4" />
+    <SolidColorBrush x:Key="StatusKept" Color="#5F6368" />
+    <SolidColorBrush x:Key="StatusFailed" Color="#C62828" />
+    <SolidColorBrush x:Key="StatusUndone" Color="#B35C00" />
+
+    <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource SubtleText}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,6,0" />
+    </Style>
+
+    <Style x:Key="SectionTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <Style x:Key="Panel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource PanelBackground}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="12" />
+    </Style>
+
+    <Style TargetType="Button">
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="MinWidth" Value="80" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+    </Style>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="MinWidth" Value="120" />
+        <Setter Property="Margin" Value="0,0,16,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="DatePicker">
+        <Setter Property="Width" Value="170" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- 判定履歴の「移動先」。状態に応じて文字色を変える -->
+    <Style x:Key="DestinationText" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource StatusKept}" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding Status}" Value="Moved">
+                <Setter Property="Foreground" Value="{StaticResource StatusMoved}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Status}" Value="Planned">
+                <Setter Property="Foreground" Value="{StaticResource StatusPlanned}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Status}" Value="Failed">
+                <Setter Property="Foreground" Value="{StaticResource StatusFailed}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding Status}" Value="Undone">
+                <Setter Property="Foreground" Value="{StaticResource StatusUndone}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+</ResourceDictionary>

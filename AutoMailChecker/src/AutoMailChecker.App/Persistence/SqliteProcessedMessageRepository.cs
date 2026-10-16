@@ -13,4 +13,13 @@ internal sealed class SqliteProcessedMessageRepository(SqliteDb db) : IProcessed
             .With("$messageId", messageId);
         return await command.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
     }
+
+    public async Task MarkProcessedAsync(string accountId, string messageId, CancellationToken ct)
+    {
+        await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
+        await connection.ExecuteAsync("""
+            INSERT OR IGNORE INTO processed_message (account_id, message_id, excluded, first_seen_at)
+            VALUES ($account, $messageId, 0, $now);
+            """, null, ct, ("$account", accountId), ("$messageId", messageId), ("$now", db.NowText())).ConfigureAwait(false);
+    }
 }

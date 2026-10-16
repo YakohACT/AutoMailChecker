@@ -1,0 +1,149 @@
+<Window x:Class="AutoMailChecker.Windows.History.HistoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:AutoMailChecker.Windows.History"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=local:HistoryViewModel}"
+        Title="判定履歴 - AutoMailChecker"
+        Width="1180" Height="760" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        FontSize="13">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/AutoMailChecker.Windows;component/Ui/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <DockPanel Margin="16">
+        <!-- 絞り込み -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock Text="期間" Style="{StaticResource FieldLabel}" />
+            <DatePicker SelectedDate="{Binding From}" />
+            <TextBlock Text="〜" Margin="6,0" VerticalAlignment="Center" />
+            <DatePicker SelectedDate="{Binding To}" Margin="0,0,16,0" />
+
+            <TextBlock Text="アカウント" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding AccountChoices}" SelectedItem="{Binding SelectedAccount}" />
+
+            <TextBlock Text="結果" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding CategoryChoices}" SelectedItem="{Binding SelectedCategory}" MinWidth="150" />
+
+            <TextBlock Text="お試しの回" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding TrialChoices}" SelectedItem="{Binding SelectedTrial}" MinWidth="200" />
+
+            <Button Content="表示" Command="{Binding RefreshCommand}" IsDefault="True" />
+        </WrapPanel>
+
+        <!-- 集計 -->
+        <TextBlock DockPanel.Dock="Top" Text="{Binding SummaryText}" Foreground="{StaticResource SubtleText}" Margin="0,0,0,8" />
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="160" />
+                <RowDefinition Height="8" />
+                <RowDefinition Height="250" MinHeight="180" />
+            </Grid.RowDefinitions>
+
+            <!-- 一覧（新しい順。末尾までスクロールすると続きを読む） -->
+            <DataGrid x:Name="RowsGrid" Grid.Row="0"
+                      ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow}"
+                      AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single"
+                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#ECEEF1" RowHeight="26" CanUserAddRows="False"
+                      BorderBrush="{StaticResource PanelBorder}" Background="White"
+                      EnableRowVirtualization="True"
+                      ScrollViewer.ScrollChanged="OnRowsScrollChanged">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="受信日時" Binding="{Binding ReceivedText}" Width="128" />
+                    <DataGridTextColumn Header="アカウント" Binding="{Binding Account}" Width="90" />
+                    <DataGridTextColumn Header="件名" Binding="{Binding Subject}" Width="*" />
+                    <DataGridTextColumn Header="該当項目" Binding="{Binding ItemsText}" Width="150" />
+                    <DataGridTextColumn Header="確信度" Binding="{Binding ConfidenceText}" Width="60" />
+                    <DataGridTemplateColumn Header="移動先" Width="230">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DestinationText}" Style="{StaticResource DestinationText}"
+                                           VerticalAlignment="Center" Margin="4,0" TextTrimming="CharacterEllipsis" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Row="1" Height="8" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- 選んだ1件の詳細と操作 -->
+            <Border Grid.Row="2" Style="{StaticResource Panel}">
+                <Grid>
+                    <TextBlock Text="一覧からメールを選ぶと、ここに詳細が出ます。" Foreground="{StaticResource SubtleText}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasSelection}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <Grid DataContext="{Binding SelectedRow}"
+                          Visibility="{Binding DataContext.HasSelection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="300" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="差出人" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FromText}" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="要約" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SummaryText}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="判定理由" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReasonText}" TextWrapping="Wrap" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="該当項目" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,0,0,6">
+                            <Run Text="{Binding ItemsText, Mode=OneWay}" /><Run Text="　（確信度 " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding ConfidenceText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" /><Run Text="）" Foreground="{StaticResource SubtleText}" />
+                        </TextBlock>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="結果" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,0,0,6">
+                            <Run Text="{Binding DestinationText, Mode=OneWay}" /><Run Text="　" /><Run Text="{Binding KindText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" /><Run Text="　" /><Run Text="{Binding CorrectionText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" />
+                        </TextBlock>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Message-ID" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding MessageIdText, Mode=OneWay}" IsReadOnly="True"
+                                 BorderThickness="0" Background="Transparent" Margin="-2,0,0,6" />
+
+                        <!-- 操作 -->
+                        <StackPanel Grid.Row="0" Grid.RowSpan="7" Grid.Column="2" Margin="16,0,0,0"
+                                    DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <Button Content="受信トレイに戻す" Command="{Binding UndoCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                    ToolTip="移動したメールを、同じアカウントの受信トレイへ戻します（確認なしで実行します）" />
+                            <TextBlock Text="誤判定として記録（本来の項目）" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <ComboBox ItemsSource="{Binding CorrectionChoices}" SelectedItem="{Binding SelectedCorrection}"
+                                          MinWidth="150" Margin="0,0,8,0" />
+                                <Button Content="記録" Command="{Binding RecordCorrectionCommand}" MinWidth="60" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding DetailMessage}" TextWrapping="Wrap" Foreground="{StaticResource StatusPlanned}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

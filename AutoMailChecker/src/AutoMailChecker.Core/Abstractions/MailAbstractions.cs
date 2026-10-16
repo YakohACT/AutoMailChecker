@@ -11,7 +11,11 @@ public interface IMailReader
 
     Task<MailSnapshot> FetchSnapshotAsync(MailRef mail, int maxBodyChars, CancellationToken ct);
 
-    Task<IReadOnlyList<MailRef>> SearchByDateAsync(string folder, DateOnly from, DateOnly to, CancellationToken ct);
+    /// <summary>受信日（サーバー側）が from〜to のメール。</summary>
+    Task<IReadOnlyList<FoundMail>> SearchByDateAsync(string folder, DateOnly from, DateOnly to, CancellationToken ct);
+
+    /// <summary>Message-ID でフォルダー内のメールを探す。見つからなければ null。移動の途中で落ちたときの確認に使う。</summary>
+    Task<MailRef?> FindByMessageIdAsync(string folder, string messageId, CancellationToken ct);
 }
 
 /// <summary>
@@ -40,12 +44,25 @@ public interface IHtmlTextExtractor
     string ExtractText(string html);
 }
 
-/// <summary>設定にあるアカウントごとの読み取り口。アカウントは起動時の設定で決まる（追加・削除は再起動で反映）。</summary>
+/// <summary>設定にあるアカウントごとの読み取り口と移動口。アカウントは起動時の設定で決まる（追加・削除は再起動で反映）。</summary>
 public interface IMailAccountRegistry
 {
     IReadOnlyCollection<string> AccountIds { get; }
 
     bool TryGetReader(string accountId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMailReader? reader);
+
+    bool TryGetMover(string accountId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IItemFolderMover? mover);
+}
+
+/// <summary>メールを移動できなかった（サーバーが MOVE にも UIDPLUS にも対応していない、移動先が迷惑メールフォルダー、など）。</summary>
+public class MailMoveException(string message, Exception? inner = null) : Exception(message, inner);
+
+/// <summary>振り分け先フォルダーが未設定、またはサーバーにない。メールは受信トレイに残し、その項目への移動を止めて知らせる。</summary>
+public sealed class MailFolderNotFoundException(string accountId, string folder)
+    : MailMoveException($"{accountId}: 振り分け先フォルダー「{folder}」がサーバーにありません。")
+{
+    public string AccountId { get; } = accountId;
+    public string Folder { get; } = folder;
 }
 
 /// <summary>

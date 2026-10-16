@@ -125,6 +125,11 @@ internal static class SqliteMigrations
         CREATE INDEX ix_queue_item_state          ON queue_item (state, id);
         CREATE INDEX ix_processed_message_seen    ON processed_message (first_seen_at);
         """,
+
+        // 版2: 移動の直前に判定結果と移動先の控えを残す（移動の後、記録の前に落ちたときに履歴を補うため）
+        """
+        ALTER TABLE queue_item ADD COLUMN pending_move TEXT;
+        """,
     ];
 
     public static int LatestVersion => Steps.Length;

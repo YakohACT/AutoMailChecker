@@ -9,15 +9,19 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
 {
     public const int SubjectMaxLength = 200;
 
-    private const string Columns = """
-        id, account_id, folder, uidvalidity, uid, message_id, received_at, from_addr, subject,
-        is_advertisement, confidence, summary, reason, outcome, target_item_id, target_folder,
-        trial_run_id, model_name, prompt_version, duration_ms, judged_at, keep
+    // 判定履歴に、移動記録（あれば）と最新の誤判定の記録を付けて読む
+    private const string SelectColumns = """
+        j.id, j.account_id, j.folder, j.uidvalidity, j.uid, j.message_id, j.received_at, j.from_addr, j.subject,
+        j.is_advertisement, j.confidence, j.summary, j.reason, j.outcome, j.target_item_id, j.target_folder,
+        j.trial_run_id, j.model_name, j.prompt_version, j.duration_ms, j.judged_at, j.keep,
+        m.id, m.account_id, m.from_folder, m.to_folder, m.dest_uidvalidity, m.dest_uid, m.moved_at, m.undone_at, m.undo_result,
+        EXISTS (SELECT 1 FROM correction c WHERE c.judgement_id = j.id),
+        (SELECT c.correct_item_id FROM correction c WHERE c.judgement_id = j.id ORDER BY c.id DESC LIMIT 1)
         """;
 
-    private const string MoveColumns = """
-        id, judgement_id, account_id, from_folder, to_folder, dest_uidvalidity, dest_uid, moved_at, undone_at, undo_result
-        """;
+    private const string FromClause = "FROM judgement j LEFT JOIN move_record m ON m.judgement_id = j.id";
+
+    private const string MovedNotUndone = "j.outcome IN ('moved', 'moved_ad') AND m.undone_at IS NULL";
 
     public async Task<long> RecordAsync(JudgementRecord judgement, MoveRecord? move, QueueItem? completed, CancellationToken ct)
     {
@@ -71,7 +75,7 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
     public async Task<JudgementRecord?> GetAsync(long id, CancellationToken ct)
     {
         await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand($"SELECT {Columns} FROM judgement WHERE id = $id;", null)
+        await using var command = connection.CreateCommand($"SELECT {SelectColumns} {FromClause} WHERE j.id = $id;", null)
             .With("$id", id);
         var records = await ReadJudgementsAsync(connection, command, ct).ConfigureAwait(false);
         return records.Count > 0 ? records[0] : null;
@@ -81,87 +85,64 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
     {
         await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
         await using var command = connection.CreateCommand("", null);
-
-        var where = new List<string>();
-        if (query.ReceivedFrom is { } from)
-        {
-            where.Add("received_at >= $from");
-            command.With("$from", SqliteDb.FormatTimestamp(from));
-        }
-
-        if (query.ReceivedTo is { } to)
-        {
-            where.Add("received_at < $to");
-            command.With("$to", SqliteDb.FormatTimestamp(to));
-        }
-
-        if (query.AccountId is { } accountId)
-        {
-            where.Add("account_id = $account");
-            command.With("$account", accountId);
-        }
-
-        if (query.TrialRunId is { } trialRunId)
-        {
-            where.Add("trial_run_id = $trialRunId");
-            command.With("$trialRunId", trialRunId);
-        }
-
-        if (query.Outcomes is { Count: > 0 } outcomes)
-        {
-            var names = outcomes.Select((outcome, i) =>
-            {
-                command.With($"$outcome{i}", outcome.ToDbValue());
-                return $"$outcome{i}";
-            }).ToList();
-            where.Add($"outcome IN ({string.Join(", ", names)})");
-        }
-
-        var sql = new StringBuilder($"SELECT {Columns} FROM judgement");
-        if (where.Count > 0)
-        {
-            sql.Append(" WHERE ").AppendJoin(" AND ", where);
-        }
-
-        sql.Append(" ORDER BY received_at DESC, id DESC LIMIT $limit OFFSET $offset;");
-        command.CommandText = sql.ToString();
+        var where = BuildWhere(query, command);
+        command.CommandText =
+            $"SELECT {SelectColumns} {FromClause}{where} ORDER BY j.received_at DESC, j.id DESC LIMIT $limit OFFSET $offset;";
         command.With("$limit", Math.Max(0, query.Limit)).With("$offset", Math.Max(0, query.Offset));
         return await ReadJudgementsAsync(connection, command, ct).ConfigureAwait(false);
     }
 
-    public async Task<MoveRecord?> GetMoveRecordAsync(long judgementId, CancellationToken ct)
+    public async Task<HistorySummary> SummarizeAsync(JudgementQuery query, CancellationToken ct)
     {
         await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
-        await using var command = connection.CreateCommand(
-            $"SELECT {MoveColumns} FROM move_record WHERE judgement_id = $judgementId;", null)
-            .With("$judgementId", judgementId);
+        await using var command = connection.CreateCommand("", null);
+        var where = BuildWhere(query, command);
+        command.CommandText = $"""
+            SELECT COUNT(*),
+                   COALESCE(SUM(CASE WHEN {MovedNotUndone} THEN 1 ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN j.confidence = 'low' THEN 1 ELSE 0 END), 0)
+            {FromClause}{where};
+            """;
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        if (!await reader.ReadAsync(ct).ConfigureAwait(false))
-        {
-            return null;
-        }
+        await reader.ReadAsync(ct).ConfigureAwait(false);
+        var total = reader.GetInt32(0);
+        var moved = reader.GetInt32(1);
+        // 移動していないものは、すべて受信トレイに残っている（移動予定・判定失敗・戻したものを含む）
+        return new HistorySummary(total, moved, total - moved, reader.GetInt32(2));
+    }
 
-        return new MoveRecord
-        {
-            Id = reader.GetInt64(0),
-            JudgementId = reader.GetInt64(1),
-            Moved = new MovedMailRef(
-                AccountId: reader.GetString(2),
-                FromFolder: reader.GetString(3),
-                ToFolder: reader.GetString(4),
-                DestUidValidity: reader.GetNullableUInt32(5),
-                DestUid: reader.GetNullableUInt32(6)),
-            MovedAt = SqliteDb.ParseTimestamp(reader.GetString(7)),
-            UndoneAt = reader.GetNullableString(8) is { } undoneAt ? SqliteDb.ParseTimestamp(undoneAt) : null,
-            UndoResult = reader.GetNullableString(9) is { } result ? UndoResultExtensions.ParseUndoResult(result) : null,
-        };
+    public async Task<TimeSpan?> AverageDurationAsync(int sampleSize, int minSamples, CancellationToken ct)
+    {
+        await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
+        await using var command = connection.CreateCommand("""
+            SELECT COUNT(*), AVG(duration_ms) FROM (
+                SELECT duration_ms FROM judgement
+                WHERE duration_ms IS NOT NULL AND outcome NOT IN ('failed', 'recorded')
+                ORDER BY id DESC LIMIT $n);
+            """, null).With("$n", sampleSize);
+        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        await reader.ReadAsync(ct).ConfigureAwait(false);
+        return reader.GetInt32(0) >= Math.Max(1, minSamples) && !reader.IsDBNull(1)
+            ? TimeSpan.FromMilliseconds(reader.GetDouble(1))
+            : null;
+    }
+
+    public async Task<MoveRecord?> GetMoveRecordAsync(long judgementId, CancellationToken ct)
+    {
+        var judgement = await GetAsync(judgementId, ct).ConfigureAwait(false);
+        return judgement?.Move;
     }
 
     public async Task MarkUndoneAsync(long moveRecordId, UndoResult result, CancellationToken ct)
     {
         await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
-        await connection.ExecuteAsync(
-            "UPDATE move_record SET undone_at = $now, undo_result = $result WHERE id = $id;", null, ct,
+        // 失敗したときは戻した日時を入れず、もう一度試せるようにする
+        await connection.ExecuteAsync("""
+            UPDATE move_record
+            SET undo_result = $result,
+                undone_at = CASE WHEN $result IN ('restored', 'not_found') THEN $now ELSE undone_at END
+            WHERE id = $id;
+            """, null, ct,
             ("$id", moveRecordId), ("$now", db.NowText()), ("$result", result.ToDbValue())).ConfigureAwait(false);
     }
 
@@ -179,6 +160,66 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
         await connection.ExecuteAsync("UPDATE judgement SET keep = 1 WHERE id = $id;", transaction, ct, ("$id", judgementId))
             .ConfigureAwait(false);
         transaction.Commit();
+    }
+
+    private static string BuildWhere(JudgementQuery query, SqliteCommand command)
+    {
+        var where = new List<string>();
+        if (query.ReceivedFrom is { } from)
+        {
+            where.Add("j.received_at >= $from");
+            command.With("$from", SqliteDb.FormatTimestamp(from));
+        }
+
+        if (query.ReceivedTo is { } to)
+        {
+            where.Add("j.received_at < $to");
+            command.With("$to", SqliteDb.FormatTimestamp(to));
+        }
+
+        if (query.AccountId is { } accountId)
+        {
+            where.Add("j.account_id = $account");
+            command.With("$account", accountId);
+        }
+
+        if (query.TrialRunId is { } trialRunId)
+        {
+            where.Add("j.trial_run_id = $trialRunId");
+            command.With("$trialRunId", trialRunId);
+        }
+
+        if (query.NewMailOnly)
+        {
+            where.Add("j.trial_run_id IS NULL");
+        }
+
+        if (query.Outcomes is { Count: > 0 } outcomes)
+        {
+            var names = outcomes.Select((outcome, i) =>
+            {
+                command.With($"$outcome{i}", outcome.ToDbValue());
+                return $"$outcome{i}";
+            }).ToList();
+            where.Add($"j.outcome IN ({string.Join(", ", names)})");
+        }
+
+        var category = query.Category switch
+        {
+            HistoryCategory.Moved => MovedNotUndone,
+            HistoryCategory.Planned => "j.outcome = 'planned'",
+            HistoryCategory.Kept => "NOT (j.outcome IN ('moved', 'moved_ad', 'planned', 'failed'))",
+            HistoryCategory.Advertisement => "j.is_advertisement = 1",
+            HistoryCategory.Failed => "j.outcome = 'failed'",
+            HistoryCategory.Undone => "m.undone_at IS NOT NULL",
+            _ => null,
+        };
+        if (category is not null)
+        {
+            where.Add($"({category})");
+        }
+
+        return where.Count == 0 ? "" : " WHERE " + string.Join(" AND ", where);
     }
 
     private static async Task<long> InsertJudgementAsync(
@@ -245,29 +286,34 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
     private static async Task<Dictionary<long, IReadOnlyList<JudgementItemRecord>>> ReadItemsAsync(
         SqliteConnection connection, IReadOnlyList<long> judgementIds, CancellationToken ct)
     {
-        await using var command = connection.CreateCommand("", null);
-        var names = judgementIds.Select((id, i) =>
-        {
-            command.With($"$id{i}", id);
-            return $"$id{i}";
-        }).ToList();
-        command.CommandText = $"""
-            SELECT judgement_id, item_id, item_label, priority FROM judgement_item
-            WHERE judgement_id IN ({string.Join(", ", names)})
-            ORDER BY judgement_id, priority;
-            """;
-
         var result = new Dictionary<long, List<JudgementItemRecord>>();
-        await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-        {
-            var judgementId = reader.GetInt64(0);
-            if (!result.TryGetValue(judgementId, out var list))
-            {
-                result[judgementId] = list = [];
-            }
 
-            list.Add(new JudgementItemRecord(new ItemId(reader.GetString(1)), reader.GetString(2), reader.GetInt32(3)));
+        // SQLite の引数の数の上限に当たらないよう、まとめて読む件数を区切る
+        foreach (var chunk in judgementIds.Chunk(500))
+        {
+            await using var command = connection.CreateCommand("", null);
+            var names = chunk.Select((id, i) =>
+            {
+                command.With($"$id{i}", id);
+                return $"$id{i}";
+            }).ToList();
+            command.CommandText = $"""
+                SELECT judgement_id, item_id, item_label, priority FROM judgement_item
+                WHERE judgement_id IN ({string.Join(", ", names)})
+                ORDER BY judgement_id, priority;
+                """;
+
+            await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                var judgementId = reader.GetInt64(0);
+                if (!result.TryGetValue(judgementId, out var list))
+                {
+                    result[judgementId] = list = [];
+                }
+
+                list.Add(new JudgementItemRecord(new ItemId(reader.GetString(1)), reader.GetString(2), reader.GetInt32(3)));
+            }
         }
 
         return result.ToDictionary(p => p.Key, p => (IReadOnlyList<JudgementItemRecord>)p.Value);
@@ -294,6 +340,22 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
         DurationMs = r.GetNullableInt64(19),
         JudgedAt = SqliteDb.ParseTimestamp(r.GetString(20)),
         Keep = r.GetInt64(21) != 0,
+        Move = r.IsDBNull(22) ? null : new MoveRecord
+        {
+            Id = r.GetInt64(22),
+            JudgementId = r.GetInt64(0),
+            Moved = new MovedMailRef(
+                AccountId: r.GetString(23),
+                FromFolder: r.GetString(24),
+                ToFolder: r.GetString(25),
+                DestUidValidity: r.GetNullableUInt32(26),
+                DestUid: r.GetNullableUInt32(27)),
+            MovedAt = SqliteDb.ParseTimestamp(r.GetString(28)),
+            UndoneAt = r.GetNullableString(29) is { } undoneAt ? SqliteDb.ParseTimestamp(undoneAt) : null,
+            UndoResult = r.GetNullableString(30) is { } result ? UndoResultExtensions.ParseUndoResult(result) : null,
+        },
+        IsCorrected = r.GetInt64(31) != 0,
+        CorrectItemId = r.GetNullableString(32),
     };
 
     private static string? Truncate(string? value, int maxLength) =>

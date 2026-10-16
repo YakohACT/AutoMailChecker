@@ -263,6 +263,90 @@ public sealed class SqliteStateStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task 結果の区分で絞り込み_ページに関係なく集計する()
+    {
+        await _store.InitializeAsync(Ct);
+        var moved = await _store.Judgements.RecordAsync(Judgement(Mail(90)), Move(destUid: 1), null, Ct);
+        var undone = await _store.Judgements.RecordAsync(Judgement(Mail(91)), Move(destUid: 2), null, Ct);
+        await _store.Judgements.MarkUndoneAsync((await _store.Judgements.GetMoveRecordAsync(undone, Ct))!.Id, UndoResult.Restored, Ct);
+        await _store.Judgements.RecordAsync(Judgement(Mail(92)) with { Outcome = Outcome.Planned }, null, null, Ct);
+        await _store.Judgements.RecordAsync(Judgement(Mail(93)) with { Outcome = Outcome.KeptAd, IsAdvertisement = true }, null, null, Ct);
+        await _store.Judgements.RecordAsync(Judgement(Mail(94)) with { Outcome = Outcome.KeptLowConfidence, Confidence = Confidence.Low }, null, null, Ct);
+        await _store.Judgements.RecordAsync(Judgement(Mail(95)) with { Outcome = Outcome.Failed, Confidence = null }, null, null, Ct);
+
+        async Task<uint[]> UidsAsync(HistoryCategory category) =>
+            (await _store.Judgements.QueryAsync(new JudgementQuery { Category = category }, Ct)).Select(j => j.Mail.Uid).Order().ToArray();
+
+        Assert.Equal(new uint[] { 90 }, await UidsAsync(HistoryCategory.Moved));
+        Assert.Equal(new uint[] { 91 }, await UidsAsync(HistoryCategory.Undone));
+        Assert.Equal(new uint[] { 92 }, await UidsAsync(HistoryCategory.Planned));
+        Assert.Equal(new uint[] { 93, 94 }, await UidsAsync(HistoryCategory.Kept));
+        Assert.Equal(new uint[] { 93 }, await UidsAsync(HistoryCategory.Advertisement));
+        Assert.Equal(new uint[] { 95 }, await UidsAsync(HistoryCategory.Failed));
+
+        var summary = await _store.Judgements.SummarizeAsync(new JudgementQuery { Limit = 1 }, Ct);
+        Assert.Equal(new HistorySummary(Total: 6, Moved: 1, Kept: 5, LowConfidence: 1), summary);
+
+        var record = await _store.Judgements.GetAsync(moved, Ct);
+        Assert.Equal("AI/重要", record?.Move?.Moved.ToFolder);
+        Assert.False(record?.IsCorrected);
+    }
+
+    [Fact]
+    public async Task 誤判定の記録は最新のものを読む()
+    {
+        await _store.InitializeAsync(Ct);
+        var id = await _store.Judgements.RecordAsync(Judgement(Mail(96)), null, null, Ct);
+
+        await _store.Judgements.AddCorrectionAsync(id, null, CorrectionSource.Undo, Ct);
+        await _store.Judgements.AddCorrectionAsync(id, "payment", CorrectionSource.Manual, Ct);
+
+        var record = await _store.Judgements.GetAsync(id, Ct);
+        Assert.True(record?.IsCorrected);
+        Assert.Equal("payment", record?.CorrectItemId);
+    }
+
+    [Fact]
+    public async Task 平均判定時間は件数が足りなければ出さない()
+    {
+        await _store.InitializeAsync(Ct);
+        for (uint i = 0; i < 3; i++)
+        {
+            await _store.Judgements.RecordAsync(Judgement(Mail(100 + i)) with { DurationMs = 10_000 + i * 1_000 }, null, null, Ct);
+        }
+
+        await _store.Judgements.RecordAsync(Judgement(Mail(110)) with { Outcome = Outcome.Failed, DurationMs = 300_000 }, null, null, Ct);
+
+        Assert.Null(await _store.Judgements.AverageDurationAsync(50, 10, Ct));
+        Assert.Equal(TimeSpan.FromSeconds(11), await _store.Judgements.AverageDurationAsync(50, 3, Ct));
+    }
+
+    [Fact]
+    public async Task 移動の控えを保存して_再起動後に読み出せる()
+    {
+        await _store.InitializeAsync(Ct);
+        await _store.Queue.EnqueueAsync(Mail(120), null, Ct);
+        var item = await _store.Queue.TakeNextAsync(Ct);
+
+        await _store.Queue.SavePendingMoveAsync(item!.Id, "{\"pending\":true}", Ct);
+        await new SqliteStateStore(_dbPath, _time).InitializeAsync(Ct);
+
+        var again = await _store.Queue.TakeNextAsync(Ct);
+        Assert.Equal("{\"pending\":true}", again?.PendingMove);
+    }
+
+    [Fact]
+    public async Task 受信トレイへ戻したメールを処理済みにできる()
+    {
+        await _store.InitializeAsync(Ct);
+
+        await _store.ProcessedMessages.MarkProcessedAsync("gmail1", "<back@example.com>", Ct);
+        await _store.ProcessedMessages.MarkProcessedAsync("gmail1", "<back@example.com>", Ct); // 二度目も失敗しない
+
+        Assert.True(await _store.ProcessedMessages.ContainsAsync("gmail1", "<back@example.com>", Ct));
+    }
+
+    [Fact]
     public async Task 監視フォルダーの状態を保存して読み直せる()
     {
         await _store.InitializeAsync(Ct);
