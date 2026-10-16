@@ -42,9 +42,11 @@ public partial class App : Application
             _logger = _host.Services.GetRequiredService<ILogger<App>>();
             RegisterGlobalExceptionHandlers();
 
-            await _host.StartAsync();
+            // 各サービスが UI スレッドの上で動き続けないよう、スレッドプールで開始する
+            var host = _host;
+            await Task.Run(() => host.StartAsync());
 
-            // await の後も UI スレッドで続くので、ここでトレイを作る
+            // await の後は UI スレッドに戻るので、ここでトレイを作る
             var status = _host.Services.GetRequiredService<IAppStatus>();
             _tray = new TrayApp();
             _tray.CommandInvoked += OnTrayCommand;
@@ -101,11 +103,11 @@ public partial class App : Application
         _tray?.Dispose();
         _tray = null;
 
-        if (_host is not null)
+        if (_host is { } host)
         {
             try
             {
-                await _host.StopAsync();
+                await Task.Run(() => host.StopAsync());
             }
             catch (Exception ex)
             {

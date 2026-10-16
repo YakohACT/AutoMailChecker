@@ -15,21 +15,41 @@ internal sealed class SqliteQueueRepository(SqliteDb db) : IQueueRepository
         return await InsertAsync(connection, null, mail, trialRunId, db.NowText(), ct).ConfigureAwait(false);
     }
 
-    public async Task<QueueItem?> TakeNextAsync(CancellationToken ct)
+    public async Task<QueueItem?> TakeNextAsync(IReadOnlyCollection<string> skipAccounts, CancellationToken ct)
     {
         await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
+        await using var command = connection.CreateCommand("", null);
+        var skip = "";
+        if (skipAccounts.Count > 0)
+        {
+            var names = skipAccounts.Select((account, i) =>
+            {
+                command.With($"$skip{i}", account);
+                return $"$skip{i}";
+            }).ToList();
+            skip = $"AND account_id NOT IN ({string.Join(", ", names)})";
+        }
+
         // 新着（trial_run_id が NULL）は常にお試しより先に、それぞれ古い順に処理する
-        await using var command = connection.CreateCommand($"""
+        command.CommandText = $"""
             UPDATE queue_item SET state = 'processing'
             WHERE id = (
                 SELECT id FROM queue_item
-                WHERE state = 'waiting'
+                WHERE state = 'waiting' {skip}
                 ORDER BY (trial_run_id IS NOT NULL), id
                 LIMIT 1)
             RETURNING {Columns};
-            """, null);
+            """;
         await using var reader = await command.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? Read(reader) : null;
+    }
+
+    public async Task RemoveAsync(QueueItem item, CancellationToken ct)
+    {
+        await using var connection = await db.OpenAsync(ct).ConfigureAwait(false);
+        using var transaction = connection.BeginTransaction();
+        await CompleteAsync(connection, transaction, item, ct).ConfigureAwait(false);
+        transaction.Commit();
     }
 
     public async Task ReleaseAsync(long id, string error, int maxAttempts, CancellationToken ct)

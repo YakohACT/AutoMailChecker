@@ -257,7 +257,42 @@ public static partial class ConfigValidator
 
         ValidateRange(issues, ConfigSection.Llm, "llm.lowLoad.gpuLayers", llm.LowLoad.GpuLayers, 0, 1000);
         ValidateRange(issues, ConfigSection.Llm, "llm.lowLoad.threads", llm.LowLoad.Threads, 1, 256);
+
+        for (var i = 0; i < llm.ExtraArgs.Count; i++)
+        {
+            if (IsForbiddenLlmArg(llm.ExtraArgs[i]))
+            {
+                Add(issues, ConfigSection.Llm, $"llm.extraArgs[{i}]",
+                    $"「{llm.ExtraArgs[i]}」は指定できません（待ち受け先・API キー・Web UI・ツール実行・モデルはアプリが決めます）。");
+            }
+        }
     }
+
+    /// <summary>
+    /// llama-server の追加引数として渡せないもの（仕様書11章「AIの権限を閉じ込める5層」の1層目）。
+    /// 待ち受け先と API キーと Web UI 無効はアプリが必ず付け、ツール実行・MCP・エージェント機能は起動させない。
+    /// </summary>
+    public static bool IsForbiddenLlmArg(string arg)
+    {
+        var name = (arg ?? "").Trim();
+        var equals = name.IndexOf('=');
+        if (equals > 0)
+        {
+            name = name[..equals];
+        }
+
+        return ForbiddenLlmArgs.Contains(name)
+            || ForbiddenLlmArgPrefixes.Any(prefix => name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static readonly HashSet<string> ForbiddenLlmArgs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "--host", "--port", "--api-key", "--api-key-file", "--ui", "--webui", "--path",
+        "-m", "--model", "-mu", "--model-url", "-hf", "-hfr", "--hf-repo", "-hff", "--hf-file",
+    };
+
+    private static readonly string[] ForbiddenLlmArgPrefixes =
+        ["--tools", "--mcp", "--agent", "--ui-mcp", "--webui-mcp", "--ui-config", "--webui-config"];
 
     private static void ValidatePause(PauseConfig pause, List<ConfigIssue> issues)
     {

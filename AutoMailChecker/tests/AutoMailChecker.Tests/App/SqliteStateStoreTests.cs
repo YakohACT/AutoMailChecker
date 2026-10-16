@@ -83,6 +83,33 @@ public sealed class SqliteStateStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task 指定したアカウントの分は飛ばして取り出す()
+    {
+        await _store.InitializeAsync(Ct);
+        await _store.Queue.EnqueueAsync(Mail(1, "gmail1"), null, Ct);
+        await _store.Queue.EnqueueAsync(Mail(2, "icloud"), null, Ct);
+
+        var item = await _store.Queue.TakeNextAsync(["gmail1"], Ct);
+
+        Assert.Equal("icloud", item?.Mail.AccountId);
+        Assert.Null(await _store.Queue.TakeNextAsync(["gmail1"], Ct));
+    }
+
+    [Fact]
+    public async Task 記録せずに消しても_お試しの進み具合は進む()
+    {
+        await _store.InitializeAsync(Ct);
+        var trial = await CreateTrialAsync([Mail(90)]);
+        var item = await _store.Queue.TakeNextAsync(Ct);
+
+        await _store.Queue.RemoveAsync(item!, Ct);
+
+        Assert.Equal(1, (await _store.TrialRuns.GetAsync(trial.Id, Ct))?.Processed);
+        Assert.Equal(0, await _store.Queue.CountPendingAsync(Ct));
+        Assert.Empty(await _store.Judgements.QueryAsync(new JudgementQuery(), Ct));
+    }
+
+    [Fact]
     public async Task 処理できなかった1件は再試行し_上限に達したらfailedにする()
     {
         await _store.InitializeAsync(Ct);

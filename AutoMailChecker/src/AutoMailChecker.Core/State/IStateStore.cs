@@ -26,7 +26,18 @@ public interface IQueueRepository
     Task<bool> EnqueueAsync(MailRef mail, long? trialRunId, CancellationToken ct);
 
     /// <summary>次の1件を処理中にして返す。なければ null。</summary>
-    Task<QueueItem?> TakeNextAsync(CancellationToken ct);
+    Task<QueueItem?> TakeNextAsync(CancellationToken ct) => TakeNextAsync([], ct);
+
+    /// <summary>
+    /// 次の1件を処理中にして返す。skipAccounts のアカウント（接続できず待っている間など）の分は取らない。
+    /// </summary>
+    Task<QueueItem?> TakeNextAsync(IReadOnlyCollection<string> skipAccounts, CancellationToken ct);
+
+    /// <summary>
+    /// 記録せずにキューから消す（サーバーにもうない、処理済みと同じメールだった、など）。
+    /// お試しの対象なら、その回の処理済み件数は進める。
+    /// </summary>
+    Task RemoveAsync(QueueItem item, CancellationToken ct);
 
     /// <summary>処理できなかった1件を処理待ちに戻す。試行回数が上限に達したら failed にする。</summary>
     Task ReleaseAsync(long id, string error, int maxAttempts, CancellationToken ct);

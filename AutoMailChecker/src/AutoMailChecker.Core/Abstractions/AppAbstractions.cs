@@ -19,6 +19,15 @@ public interface ICredentialStore
     void WriteSecret(string key, string userName, string secret);
 }
 
+/// <summary>トレイアイコンに出すエラーの報告口。Source（アカウント ID など）ごとに1件を持つ。</summary>
+public interface IStatusReporter
+{
+    /// <summary>同じ Source のエラーは置き換える。</summary>
+    void ReportError(string source, string message);
+
+    void ClearError(string source);
+}
+
 /// <summary>トレイアイコンに出す状態。</summary>
 public interface IAppStatus
 {

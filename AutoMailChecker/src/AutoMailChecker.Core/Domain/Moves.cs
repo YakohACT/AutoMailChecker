@@ -19,6 +19,11 @@ public enum Outcome
     KeptNoFolder,
     /// <summary>判定または移動に失敗した</summary>
     Failed,
+    /// <summary>
+    /// 件名と差出人だけを記録した（AI 判定なし）。開発ステップ2（監視と記録）で使う。
+    /// E-R 図の値には無く、このアプリで足したもの。
+    /// </summary>
+    Recorded,
 }
 
 public static class OutcomeExtensions
@@ -33,6 +38,7 @@ public static class OutcomeExtensions
         Outcome.KeptNoMatch => "kept_no_match",
         Outcome.KeptNoFolder => "kept_no_folder",
         Outcome.Failed => "failed",
+        Outcome.Recorded => "recorded",
         _ => throw new ArgumentOutOfRangeException(nameof(value), value, null),
     };
 
@@ -46,6 +52,7 @@ public static class OutcomeExtensions
         "kept_no_match" => Outcome.KeptNoMatch,
         "kept_no_folder" => Outcome.KeptNoFolder,
         "failed" => Outcome.Failed,
+        "recorded" => Outcome.Recorded,
         _ => throw new FormatException($"不明な結果の値です: {value}"),
     };
 }

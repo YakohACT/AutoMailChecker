@@ -1,6 +1,22 @@
+using AutoMailChecker.Core.Configuration;
 using AutoMailChecker.Persistence;
 
 namespace AutoMailChecker.Tests;
+
+/// <summary>決まった設定を返すだけの IConfigProvider。</summary>
+internal sealed class FixedConfig(AppConfig config) : IConfigProvider
+{
+    public AppConfig Current => config;
+    public IReadOnlyList<ConfigIssue> Issues => [];
+
+    public event EventHandler<ConfigChangedEventArgs>? Changed
+    {
+        add { }
+        remove { }
+    }
+
+    public Task<ConfigSaveResult> SaveAsync(AppConfig config, CancellationToken ct) => throw new NotSupportedException();
+}
 
 /// <summary>テストから時刻を進められる TimeProvider。</summary>
 internal sealed class ManualTimeProvider(DateTimeOffset now) : TimeProvider

@@ -39,3 +39,32 @@ public interface IHtmlTextExtractor
 {
     string ExtractText(string html);
 }
+
+/// <summary>設定にあるアカウントごとの読み取り口。アカウントは起動時の設定で決まる（追加・削除は再起動で反映）。</summary>
+public interface IMailAccountRegistry
+{
+    IReadOnlyCollection<string> AccountIds { get; }
+
+    bool TryGetReader(string accountId, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IMailReader? reader);
+}
+
+/// <summary>
+/// 対象のメールがサーバーにない。ユーザーが別のフォルダーへ移した、削除した、または UIDVALIDITY が変わって UID が無効になった。
+/// 処理待ちから外すだけで、エラーとしては扱わない。
+/// </summary>
+public sealed class MailNotFoundException(MailRef mail, string reason)
+    : Exception($"{mail.AccountId} {mail.Folder} UID {mail.Uid}: {reason}")
+{
+    public MailRef Mail { get; } = mail;
+}
+
+/// <summary>
+/// IMAP サーバーに接続・認証できない、または通信が途中で切れた。
+/// 認証の失敗（パスワード未登録を含む）は IsAuthenticationFailure が true になり、そのアカウントだけ止めて再設定を促す。
+/// </summary>
+public sealed class MailServerException(string accountId, string message, bool isAuthenticationFailure, Exception? inner = null)
+    : Exception(message, inner)
+{
+    public string AccountId { get; } = accountId;
+    public bool IsAuthenticationFailure { get; } = isAuthenticationFailure;
+}

@@ -1,8 +1,10 @@
 using AutoMailChecker.Core;
 using AutoMailChecker.Core.Configuration;
 using AutoMailChecker.Core.State;
+using AutoMailChecker.Llm;
 using AutoMailChecker.Logging;
 using AutoMailChecker.Mail;
+using AutoMailChecker.Mail.Imap;
 using AutoMailChecker.Persistence;
 using AutoMailChecker.Services;
 using AutoMailChecker.Windows.Credentials;
@@ -49,11 +51,39 @@ public static class AppHost
         services.AddSingleton<ActionPolicy>();
         services.AddSingleton<AppStatusService>();
         services.AddSingleton<IAppStatus>(sp => sp.GetRequiredService<AppStatusService>());
+        services.AddSingleton<IStatusReporter>(sp => sp.GetRequiredService<AppStatusService>());
+        services.AddSingleton<QueueSignal>();
 
-        // 起動順: 状態 DB の初期化 → 設定ファイルの監視 → 定期処理
+        // IMAP。アカウントは起動時の設定で決まる（追加・削除は再起動で反映）
+        services.AddSingleton<ImapConnector>();
+        services.AddSingleton<IMailAccountRegistry>(sp => new ImapAccountRegistry(
+            sp.GetRequiredService<IConfigProvider>().Current.Accounts,
+            sp.GetRequiredService<ImapConnector>(),
+            sp.GetRequiredService<BodyPreprocessor>(),
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILoggerFactory>()));
+
+        // AI（llama-server）。モデル・ポート・文脈長は起動時の設定で決まる（変更は再起動で反映）
+        services.AddSingleton(sp => new LlamaServerManager(
+            sp.GetRequiredService<IConfigProvider>(),
+            paths.RunDirectory,
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetRequiredService<ILogger<LlamaServerManager>>()));
+        services.AddSingleton<ILlmRuntime>(sp => sp.GetRequiredService<LlamaServerManager>());
+        services.AddSingleton<IMailClassifier>(sp => new LlamaClassifier(
+            sp.GetRequiredService<LlamaServerManager>(), sp.GetRequiredService<ILogger<LlamaClassifier>>()));
+
+        // 終了時は処理中の1通を最大2分待ち、そのあと llama-server を止める
+        services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromMinutes(3));
+
+        // 起動順: 状態 DB の初期化 → 設定ファイルの監視 → 定期処理 → AI → メールの監視と処理
+        // 終了は逆順（処理 → 監視 → AI の停止）
         services.AddHostedService<StateStoreInitializer>();
         services.AddHostedService(sp => sp.GetRequiredService<ConfigService>());
         services.AddHostedService<HistoryRetentionService>();
+        services.AddHostedService<LlmService>();
+        services.AddHostedService<MailWatchService>();
+        services.AddHostedService<MailProcessingService>();
 
         return builder.Build();
     }

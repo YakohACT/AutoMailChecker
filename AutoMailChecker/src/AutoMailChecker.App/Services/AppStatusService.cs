@@ -7,7 +7,7 @@ namespace AutoMailChecker.Services;
 /// トレイに出す状態（運転モード、未処理件数、お試しの進み具合、エラー）をまとめる。
 /// 各サービスがここへ報告し、トレイは Changed を受けて表示を変える。
 /// </summary>
-public sealed class AppStatusService : IAppStatus
+public sealed class AppStatusService : IAppStatus, IStatusReporter
 {
     public const string ConfigErrorSource = "設定";
 
