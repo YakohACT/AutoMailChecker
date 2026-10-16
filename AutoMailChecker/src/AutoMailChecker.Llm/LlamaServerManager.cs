@@ -345,9 +345,11 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
 
     private sealed record RunningState(LlmProfile Profile, string ApiKey, Process Process);
 
-    /// <summary>llama-server の出力の最後の数行。</summary>
+    /// <summary>llama-server の出力の最後の数行（起動に失敗したときなどにログへ残す手がかり。1行は短く切る）。</summary>
     private sealed class OutputTail(int capacity)
     {
+        private const int MaxLineLength = 200;
+
         private readonly Queue<string> _lines = new();
         private readonly object _gate = new();
 
@@ -360,7 +362,7 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
 
             lock (_gate)
             {
-                _lines.Enqueue(line);
+                _lines.Enqueue(line.Length <= MaxLineLength ? line : line[..MaxLineLength] + "…");
                 while (_lines.Count > capacity)
                 {
                     _lines.Dequeue();

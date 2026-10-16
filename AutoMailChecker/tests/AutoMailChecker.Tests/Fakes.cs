@@ -81,6 +81,21 @@ internal sealed class FakeMailbox(string accountId) : IMailReader, IItemFolderMo
     public Task<MailRef?> FindByMessageIdAsync(string folder, string messageId, CancellationToken ct) =>
         Task.FromResult<MailRef?>(Mails.Values.FirstOrDefault(h => h.Ref.Folder == folder && h.MessageId == messageId)?.Ref);
 
+    public int ListFolderCalls { get; private set; }
+
+    public Task<IReadOnlyList<MailFolderInfo>> ListFoldersAsync(CancellationToken ct)
+    {
+        ListFolderCalls++;
+        IReadOnlyList<MailFolderInfo> folders =
+        [
+            .. Folders.Select(f => new MailFolderInfo(f, IsInbox: f == "INBOX", IsJunk: false, IsSpecial: false, CanSelect: true)),
+            new("[Gmail]", false, false, false, CanSelect: false),
+            new("[Gmail]/迷惑メール", false, IsJunk: true, false, true),
+            new("[Gmail]/送信済みメール", false, false, IsSpecial: true, true),
+        ];
+        return Task.FromResult(folders);
+    }
+
     public Task<MovedMailRef> MoveToItemFolderAsync(MailRef mail, ItemId item, CancellationToken ct) =>
         Task.FromResult(Move(mail, ItemFolders.GetValueOrDefault(item.Value) ?? throw new MailFolderNotFoundException(accountId, "（未設定）")));
 

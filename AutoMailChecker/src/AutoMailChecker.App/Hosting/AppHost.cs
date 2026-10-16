@@ -9,6 +9,7 @@ using AutoMailChecker.Persistence;
 using AutoMailChecker.Services;
 using AutoMailChecker.Windows.Credentials;
 using AutoMailChecker.Windows.Pause;
+using AutoMailChecker.Windows.Startup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -86,6 +87,12 @@ public static class AppHost
         // 振り分け（元に戻す、お試し仕分け）
         services.AddSingleton<IUndoService, UndoService>();
         services.AddSingleton<ITrialService, TrialRunner>();
+
+        // 設定画面（振り分け先の候補、接続テスト、試し判定、ログオン時の自動起動）
+        services.AddSingleton<IMailFolderCatalog, MailFolderCatalog>();
+        services.AddSingleton<IMailConnectionTester, ImapConnectionTester>();
+        services.AddSingleton<IRejudgeService, RejudgeService>();
+        services.AddSingleton<IAutoStartRegistrar>(_ => TaskSchedulerAutoStart.ForCurrentUser());
 
         // 終了時は処理中の1通を最大2分待ち、そのあと llama-server を止める
         services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromMinutes(3));

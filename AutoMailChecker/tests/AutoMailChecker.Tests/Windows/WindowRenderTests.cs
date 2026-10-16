@@ -84,6 +84,107 @@ public sealed class WindowRenderTests : IDisposable
         Wait(trial.ShowReportAsync(trialRunId));
         Save(trialWindow, Path.Combine(outputDirectory, "trial-done.png"));
         trialWindow.Close();
+
+        RenderSettings(outputDirectory, store);
+    }
+
+    private static void RenderSettings(string outputDirectory, SqliteStateStore store)
+    {
+        var config = new ValidatingConfig(DefaultConfig.Instance);
+        var credentials = new RenderCredentials();
+        credentials.WriteSecret("AutoMailChecker/gmail1", "first@gmail.com", "x");
+        var services = new AutoMailChecker.Windows.Settings.SettingsServices(
+            config, new RenderCatalog(), new RenderRejudge(), store, new RenderRunModes(), new RenderSystem(), credentials,
+            new RenderTester(), new RenderAutoStart(), Path.GetTempPath());
+        var settings = new AutoMailChecker.Windows.Settings.SettingsViewModel(
+            services, new RenderDialogs(), AutoMailChecker.Windows.Settings.SettingsTab.Items);
+        var window = Offscreen(new AutoMailChecker.Windows.Settings.SettingsWindow(settings));
+        Wait(settings.InitializeAsync());
+
+        Save(window, Path.Combine(outputDirectory, "settings-items.png"));
+        settings.SelectedTabIndex = 1;
+        settings.PauseTab.SelectedRule = settings.PauseTab.Rules.Single(r => r.Name == "Minecraft（Java版）");
+        Save(window, Path.Combine(outputDirectory, "settings-pause.png"));
+        settings.SelectedTabIndex = 2;
+        settings.GeneralTab.SelectedAccount = settings.GeneralTab.Accounts[1];
+        Save(window, Path.Combine(outputDirectory, "settings-general.png"));
+
+        // 保存できない内容にして、赤枠と理由の出方を見る
+        settings.SelectedTabIndex = 0;
+        settings.ItemsTab.SelectedItem = settings.ItemsTab.Items[1];
+        settings.ItemsTab.Items[1].Label = "";
+        settings.ItemsTab.Items[1].Folders.Single(f => f.AccountId == "gmail1").Folder = "AI/重要";
+        settings.SaveCommand.Execute(null);
+        Save(window, Path.Combine(outputDirectory, "settings-errors.png"));
+        window.Close();
+    }
+
+    private sealed class RenderCatalog : IMailFolderCatalog
+    {
+        public Task<IReadOnlyList<string>> GetSortingFoldersAsync(string accountId, bool refresh, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<string>>(accountId == "icloud"
+                ? ["重要", "予約関連", "決済履歴", "給与明細", "広告", "Archive"]
+                : ["AI/重要", "AI/予約関連", "AI/決済履歴", "AI/給与明細", "AI/広告", "仕事"]);
+    }
+
+    private sealed class RenderRejudge : IRejudgeService
+    {
+        public bool IsAvailable => true;
+        public Task<RejudgeResult> RejudgeAsync(long judgementId, AppConfig draft, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    private sealed class RenderRunModes : IRunModeController
+    {
+        public RunModeState Current => new(RunMode.LowLoad, "Visual Studio起動中", null);
+        public IReadOnlyList<PauseDetection> CurrentDetections => [new("app:Visual Studio", PauseAction.LowLoad, "Visual Studio起動中")];
+
+        public event EventHandler<RunModeState>? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public void PauseFor(TimeSpan? duration) { }
+        public void Stop() { }
+        public void Resume() { }
+    }
+
+    private sealed class RenderSystem : AutoMailChecker.Windows.Pause.ISystemSnapshotSource
+    {
+        public IReadOnlyList<AutoMailChecker.Windows.Pause.ProcessInfo> GetProcesses() => [];
+        public IReadOnlyList<AutoMailChecker.Windows.Pause.WindowInfo> GetWindows() => [];
+        public bool IsFullscreen() => false;
+    }
+
+    private sealed class RenderCredentials : ICredentialStore
+    {
+        private readonly Dictionary<string, string> _secrets = [];
+        public string? ReadSecret(string key) => _secrets.GetValueOrDefault(key);
+        public void WriteSecret(string key, string userName, string secret) => _secrets[key] = secret;
+    }
+
+    private sealed class RenderTester : IMailConnectionTester
+    {
+        public Task<string> TestAsync(AccountConfig account, CancellationToken ct) => Task.FromResult("接続できました。");
+    }
+
+    private sealed class RenderAutoStart : AutoMailChecker.Windows.Startup.IAutoStartRegistrar
+    {
+        public bool IsRegistered() => true;
+        public void Register() { }
+        public void Unregister() { }
+    }
+
+    private sealed class RenderDialogs : AutoMailChecker.Windows.Settings.ISettingsDialogs
+    {
+        public bool Confirm(string message) => true;
+        public string? AskPassword(string accountId, string user) => null;
+        public string? PickExecutable() => null;
+        public string? PickFolder(string? initialFolder) => null;
+        public string? PickModelFile(string? current) => null;
+        public AutoMailChecker.Windows.Pause.ProcessInfo? PickRunningApp(IReadOnlyList<AutoMailChecker.Windows.Pause.ProcessInfo> processes) => null;
+        public void ShowRejudge(AutoMailChecker.Windows.Settings.RejudgeViewModel viewModel) { }
+        public void OpenFolder(string path) { }
     }
 
     private static async Task<long> SeedAsync(SqliteStateStore store)

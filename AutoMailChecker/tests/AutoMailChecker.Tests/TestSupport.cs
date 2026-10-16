@@ -3,6 +3,52 @@ using AutoMailChecker.Persistence;
 
 namespace AutoMailChecker.Tests;
 
+/// <summary>書かれたログを覚えておく ILogger（ログに本文が出ないことを確かめる）。</summary>
+internal sealed class ListLogger<T> : Microsoft.Extensions.Logging.ILogger<T>
+{
+    public List<string> Messages { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state,
+        Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        lock (Messages)
+        {
+            Messages.Add(formatter(state, exception) + (exception is null ? "" : "\n" + exception));
+        }
+    }
+}
+
+/// <summary>保存すると本物と同じように検証し、通れば保存した設定を覚える IConfigProvider（ファイルには書かない）。</summary>
+internal sealed class ValidatingConfig(AppConfig config) : IConfigProvider
+{
+    public AppConfig? Saved { get; private set; }
+    public AppConfig Current => config;
+    public IReadOnlyList<ConfigIssue> Issues => [];
+
+    public event EventHandler<ConfigChangedEventArgs>? Changed
+    {
+        add { }
+        remove { }
+    }
+
+    public Task<ConfigSaveResult> SaveAsync(AppConfig candidate, CancellationToken ct)
+    {
+        var issues = ConfigValidator.Validate(candidate);
+        if (issues.Count > 0)
+        {
+            return Task.FromResult(ConfigSaveResult.Rejected(issues));
+        }
+
+        Saved = candidate;
+        return Task.FromResult(new ConfigSaveResult(true, [], false));
+    }
+}
+
 /// <summary>決まった設定を返すだけの IConfigProvider。</summary>
 internal sealed class FixedConfig(AppConfig config) : IConfigProvider
 {

@@ -4,6 +4,9 @@ using AutoMailChecker.Core.Configuration;
 using AutoMailChecker.Core.State;
 using AutoMailChecker.Hosting;
 using AutoMailChecker.Windows;
+using AutoMailChecker.Windows.Pause;
+using AutoMailChecker.Windows.Settings;
+using AutoMailChecker.Windows.Startup;
 using AutoMailChecker.Windows.Tray;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -23,6 +26,7 @@ public partial class App : Application
     private TrayApp? _tray;
     private AppWindows? _windows;
     private IRunModeController? _runModes;
+    private IConfigProvider _config = null!;
     private ILogger<App>? _logger;
     private bool _exiting;
 
@@ -54,25 +58,43 @@ public partial class App : Application
             // await の後は UI スレッドに戻るので、ここでトレイとウィンドウの窓口を作る
             var services = _host.Services;
             var status = services.GetRequiredService<IAppStatus>();
+            _config = services.GetRequiredService<IConfigProvider>();
             _windows = new AppWindows(
-                services.GetRequiredService<IStateStore>(),
-                services.GetRequiredService<IConfigProvider>(),
+                new SettingsServices(
+                    _config,
+                    services.GetRequiredService<IMailFolderCatalog>(),
+                    services.GetRequiredService<IRejudgeService>(),
+                    services.GetRequiredService<IStateStore>(),
+                    services.GetRequiredService<IRunModeController>(),
+                    services.GetRequiredService<ISystemSnapshotSource>(),
+                    services.GetRequiredService<ICredentialStore>(),
+                    services.GetRequiredService<IMailConnectionTester>(),
+                    services.GetRequiredService<IAutoStartRegistrar>(),
+                    services.GetRequiredService<AppPaths>().LogDirectory),
                 services.GetRequiredService<IUndoService>(),
                 services.GetRequiredService<ITrialService>(),
                 status);
             _runModes = services.GetRequiredService<IRunModeController>();
             _tray = new TrayApp();
             _tray.CommandInvoked += OnTrayCommand;
-            foreach (var command in new[]
-                     {
-                         TrayCommand.Pause30Minutes, TrayCommand.Pause1Hour, TrayCommand.PauseUntilResumed,
-                         TrayCommand.Stop, TrayCommand.Resume, TrayCommand.OpenHistory, TrayCommand.OpenTrial,
-                     })
+            foreach (var command in Enum.GetValues<TrayCommand>())
             {
                 _tray.SetCommandAvailable(command, true);
             }
+
             _tray.Show(status.Current);
-            status.Changed += (_, snapshot) => Dispatcher.InvokeAsync(() => _tray?.Update(snapshot));
+            var shownErrors = status.Current.Errors;
+            status.Changed += (_, snapshot) => Dispatcher.InvokeAsync(() =>
+            {
+                _tray?.Update(snapshot);
+                // 新しく出たエラーは、設定でオンにしていればポップアップでも知らせる（既定はトレイアイコンだけ）
+                var newErrors = snapshot.Errors.Except(shownErrors).ToList();
+                shownErrors = snapshot.Errors;
+                if (newErrors.Count > 0 && _config.Current.Policy.ErrorPopup)
+                {
+                    _tray?.ShowNotification(AppInfo.Name, string.Join("\n", newErrors.Select(e => $"{e.Source}: {e.Message}")));
+                }
+            });
 
             _logger.LogInformation("起動しました。");
         }
@@ -122,6 +144,15 @@ public partial class App : Application
                 break;
             case TrayCommand.OpenTrial:
                 _windows?.ShowTrial();
+                break;
+            case TrayCommand.OpenItemSettings:
+                _windows?.ShowSettings(SettingsTab.Items);
+                break;
+            case TrayCommand.OpenPauseSettings:
+                _windows?.ShowSettings(SettingsTab.Pause);
+                break;
+            case TrayCommand.OpenGeneralSettings:
+                _windows?.ShowSettings(SettingsTab.General);
                 break;
             case TrayCommand.Exit:
                 await ExitAsync();

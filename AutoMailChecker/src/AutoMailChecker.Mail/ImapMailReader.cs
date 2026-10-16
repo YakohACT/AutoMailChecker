@@ -91,6 +91,22 @@ public sealed class ImapMailReader(ImapAccountSession session, BodyPreprocessor 
             return found.Count > 0 ? new MailRef(AccountId, folderName, folder.UidValidity, found[^1].Id) : null;
         }, retryOnDisconnect: true, ct);
 
+    public Task<IReadOnlyList<MailFolderInfo>> ListFoldersAsync(CancellationToken ct) =>
+        session.UseAsync<IReadOnlyList<MailFolderInfo>>(async (client, token) =>
+        {
+            var folders = new List<IMailFolder>();
+            foreach (var personal in client.PersonalNamespaces)
+            {
+                folders.AddRange(await client.GetFoldersAsync(personal, subscribedOnly: false, token).ConfigureAwait(false));
+            }
+
+            return folders
+                .Select(folder => ImapFolders.Describe(client, folder))
+                .DistinctBy(info => info.Name)
+                .OrderBy(info => info.Name, StringComparer.Ordinal)
+                .ToList();
+        }, retryOnDisconnect: true, ct);
+
     private static async Task<(IMailFolder Folder, IMessageSummary Summary)> FetchSummaryAsync(
         ImapClient client, MailRef mail, FetchRequest request, CancellationToken ct)
     {

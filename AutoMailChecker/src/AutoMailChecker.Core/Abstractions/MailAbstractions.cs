@@ -16,6 +16,18 @@ public interface IMailReader
 
     /// <summary>Message-ID でフォルダー内のメールを探す。見つからなければ null。移動の途中で落ちたときの確認に使う。</summary>
     Task<MailRef?> FindByMessageIdAsync(string folder, string messageId, CancellationToken ct);
+
+    /// <summary>このアカウントにあるフォルダーの一覧（LIST、SPECIAL-USE 属性付き）。</summary>
+    Task<IReadOnlyList<MailFolderInfo>> ListFoldersAsync(CancellationToken ct);
+}
+
+/// <summary>サーバー上のフォルダー1つ。</summary>
+/// <param name="IsSpecial">送信済み・下書き・ごみ箱・すべてのメールなど、振り分け先に向かない特別なフォルダー</param>
+/// <param name="CanSelect">メールを入れられるか（Gmail の「[Gmail]」のような入れ物だけのフォルダーは false）</param>
+public sealed record MailFolderInfo(string Name, bool IsInbox, bool IsJunk, bool IsSpecial, bool CanSelect)
+{
+    /// <summary>振り分け先の候補にしてよいか（受信トレイ・迷惑メール・特別なフォルダーは除く）。</summary>
+    public bool IsSortingCandidate => CanSelect && !IsInbox && !IsJunk && !IsSpecial;
 }
 
 /// <summary>

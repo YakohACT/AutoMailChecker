@@ -49,6 +49,40 @@
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <!-- 誤りのある欄は赤枠にして、理由を下に出す（保存時の検証） -->
+    <ControlTemplate x:Key="ErrorBelow">
+        <StackPanel>
+            <Border BorderBrush="{StaticResource StatusFailed}" BorderThickness="1.5" CornerRadius="2">
+                <AdornedElementPlaceholder x:Name="Adorned" />
+            </Border>
+            <TextBlock Text="{Binding [0].ErrorContent}" Foreground="{StaticResource StatusFailed}" FontSize="11"
+                       TextWrapping="Wrap" MaxWidth="{Binding ActualWidth, ElementName=Adorned}" Margin="0,2,0,0" />
+        </StackPanel>
+    </ControlTemplate>
+
+    <Style TargetType="TextBox">
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ErrorBelow}" />
+        <Setter Property="Padding" Value="3,2" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="FolderComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+        <Setter Property="Validation.ErrorTemplate" Value="{StaticResource ErrorBelow}" />
+        <Setter Property="IsEditable" Value="True" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style x:Key="FieldTitle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource SubtleText}" />
+        <Setter Property="Margin" Value="0,10,0,3" />
+    </Style>
+
+    <Style x:Key="Hint" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource SubtleText}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
     <!-- 判定履歴の「移動先」。状態に応じて文字色を変える -->
     <Style x:Key="DestinationText" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource StatusKept}" />

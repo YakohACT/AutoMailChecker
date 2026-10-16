@@ -118,6 +118,15 @@ public sealed class TrayApp : IDisposable
         _resumeItem.Visible = status.Mode is RunMode.Held or RunMode.Stopped;
     }
 
+    /// <summary>エラーのポップアップ（設定でオンにしたときだけ使う）。</summary>
+    public void ShowNotification(string title, string message)
+    {
+        if (!_disposed)
+        {
+            _notifyIcon.ShowBalloonTip(10_000, title, message.Length <= 250 ? message : message[..249] + "…", ToolTipIcon.Warning);
+        }
+    }
+
     public void SetCommandAvailable(TrayCommand command, bool available)
     {
         if (_commandItems.TryGetValue(command, out var item))

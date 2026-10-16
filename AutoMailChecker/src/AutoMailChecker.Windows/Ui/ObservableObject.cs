@@ -66,6 +66,59 @@ public sealed class AsyncCommand(Func<Task> execute, Func<bool>? canExecute = nu
     }
 }
 
+/// <summary>
+/// 入力欄の誤りを持てる ViewModel。誤りのある欄は赤枠になり、理由が下に出る（画面設計: 共通ルール）。
+/// </summary>
+public abstract class EditableObject : ObservableObject, INotifyDataErrorInfo
+{
+    private readonly Dictionary<string, List<string>> _errors = [];
+
+    public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
+
+    public bool HasErrors => _errors.Count > 0;
+
+    public System.Collections.IEnumerable GetErrors(string? propertyName) =>
+        propertyName is not null && _errors.TryGetValue(propertyName, out var messages) ? messages : Array.Empty<string>();
+
+    public void AddError(string propertyName, string message)
+    {
+        if (!_errors.TryGetValue(propertyName, out var messages))
+        {
+            _errors[propertyName] = messages = [];
+        }
+
+        messages.Add(message);
+        ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
+        OnPropertyChanged(nameof(HasErrors));
+    }
+
+    public void ClearErrors()
+    {
+        var names = _errors.Keys.ToList();
+        _errors.Clear();
+        foreach (var name in names)
+        {
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(name));
+        }
+
+        OnPropertyChanged(nameof(HasErrors));
+    }
+}
+
+/// <summary>同期の処理を行うコマンド。</summary>
+public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) : ICommand
+{
+    public event EventHandler? CanExecuteChanged
+    {
+        add => CommandManager.RequerySuggested += value;
+        remove => CommandManager.RequerySuggested -= value;
+    }
+
+    public bool CanExecute(object? parameter) => canExecute?.Invoke() ?? true;
+
+    public void Execute(object? parameter) => execute();
+}
+
 /// <summary>選択肢（表示名と値）。</summary>
 public sealed record Choice<T>(string Label, T Value)
 {
