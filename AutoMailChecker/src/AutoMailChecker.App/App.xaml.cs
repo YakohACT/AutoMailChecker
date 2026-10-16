@@ -22,6 +22,7 @@ public partial class App : Application
     private IHost? _host;
     private TrayApp? _tray;
     private AppWindows? _windows;
+    private IRunModeController? _runModes;
     private ILogger<App>? _logger;
     private bool _exiting;
 
@@ -59,10 +60,17 @@ public partial class App : Application
                 services.GetRequiredService<IUndoService>(),
                 services.GetRequiredService<ITrialService>(),
                 status);
+            _runModes = services.GetRequiredService<IRunModeController>();
             _tray = new TrayApp();
             _tray.CommandInvoked += OnTrayCommand;
-            _tray.SetCommandAvailable(TrayCommand.OpenHistory, true);
-            _tray.SetCommandAvailable(TrayCommand.OpenTrial, true);
+            foreach (var command in new[]
+                     {
+                         TrayCommand.Pause30Minutes, TrayCommand.Pause1Hour, TrayCommand.PauseUntilResumed,
+                         TrayCommand.Stop, TrayCommand.Resume, TrayCommand.OpenHistory, TrayCommand.OpenTrial,
+                     })
+            {
+                _tray.SetCommandAvailable(command, true);
+            }
             _tray.Show(status.Current);
             status.Changed += (_, snapshot) => Dispatcher.InvokeAsync(() => _tray?.Update(snapshot));
 
@@ -94,6 +102,21 @@ public partial class App : Application
     {
         switch (command)
         {
+            case TrayCommand.Pause30Minutes:
+                _runModes?.PauseFor(TimeSpan.FromMinutes(30));
+                break;
+            case TrayCommand.Pause1Hour:
+                _runModes?.PauseFor(TimeSpan.FromHours(1));
+                break;
+            case TrayCommand.PauseUntilResumed:
+                _runModes?.PauseFor(null);
+                break;
+            case TrayCommand.Stop:
+                _runModes?.Stop();
+                break;
+            case TrayCommand.Resume:
+                _runModes?.Resume();
+                break;
             case TrayCommand.OpenHistory:
                 _windows?.ShowHistory();
                 break;

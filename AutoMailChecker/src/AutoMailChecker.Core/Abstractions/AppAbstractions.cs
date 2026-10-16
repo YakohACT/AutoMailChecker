@@ -3,9 +3,25 @@ namespace AutoMailChecker.Core;
 /// <summary>現在の運転モード。手動操作とゲーム・全画面の検知から決まる。</summary>
 public interface IRunModeSource
 {
-    RunMode Current { get; }
+    RunModeState Current { get; }
 
-    event EventHandler<RunMode>? Changed;
+    event EventHandler<RunModeState>? Changed;
+}
+
+/// <summary>トレイからの手動操作を受ける運転モードの窓口。</summary>
+public interface IRunModeController : IRunModeSource
+{
+    /// <summary>判定保留（一時停止）。duration が null なら再開するまで。</summary>
+    void PauseFor(TimeSpan? duration);
+
+    /// <summary>完全停止（llama-server を終了してメモリを空ける）。</summary>
+    void Stop();
+
+    /// <summary>手動の一時停止・完全停止を解き、いま検知している完全停止の原因も、それが終わるまでは無視する。</summary>
+    void Resume();
+
+    /// <summary>いま検知している停止対象（設定画面の「現在の検知」に出す）。</summary>
+    IReadOnlyList<PauseDetection> CurrentDetections { get; }
 }
 
 /// <summary>

@@ -11,13 +11,14 @@ namespace AutoMailChecker.Services;
 /// - 移動するのは、新着なら自動仕分け（policy.autoSort）がオンのとき、お試しなら「実際に移動する」の回だけ。
 ///   それ以外は移動予定先（planned）を記録する。アカウントの allowMove が false なら移動しない
 /// - 移動の直前に判定結果と移動先の控えを残し、移動の後・記録の前に落ちても、再起動後に履歴を補う
-/// - llama-server が準備できていない間は取り出さない（処理待ちは溜まり、準備ができたら古い順に判定する）
+/// - 判定保留・完全停止の間と、llama-server が準備できていない間は取り出さない（処理待ちは溜まり、再開したら古い順に判定する）
+/// - llama-server の切り替え中は取り出さない（ProcessingGate）
 /// - 取り出した1通は、終了の指示が出ても猶予の間は最後まで処理する
 /// </summary>
 public sealed class MailProcessingService(
     IStateStore store, IMailAccountRegistry accounts, IMailClassifier classifier, ILlmRuntime runtime, ActionPolicy policy,
-    IConfigProvider config, QueueSignal queueSignal, AppStatusService status, TimeProvider time,
-    ILogger<MailProcessingService> logger) : BackgroundService
+    IRunModeSource runModes, ProcessingGate gate, IConfigProvider config, QueueSignal queueSignal, AppStatusService status,
+    TimeProvider time, ILogger<MailProcessingService> logger) : BackgroundService
 {
     /// <summary>移動の失敗をトレイに出すときの Source。</summary>
     public const string MoveErrorSource = "振り分け";
@@ -81,33 +82,47 @@ public sealed class MailProcessingService(
         }
     }
 
-    /// <summary>1通を処理する。取り出せる分がない（AI の準備中、処理待ちが空、後回し中の分だけ）なら false。</summary>
+    /// <summary>
+    /// 1通を処理する。取り出せる分がない（停止中、AI の準備中・切り替え中、処理待ちが空、後回し中の分だけ）なら false。
+    /// </summary>
     internal async Task<bool> ProcessNextAsync(CancellationToken ct)
     {
         QueueItem? item = null;
-        if (runtime.Running is not null && time.GetUtcNow() >= _llmCooldownUntil)
+        if (CanJudge() && gate.TryEnter())
         {
-            item = await store.Queue.TakeNextAsync(CoolingDownAccounts(), ct).ConfigureAwait(false);
-        }
-
-        if (item is not null)
-        {
-            // 終了の指示が出ても、猶予の間は処理中の1通を続ける
-            using (var itemCts = new CancellationTokenSource())
-            using (ct.Register(() => itemCts.CancelAfter(ItemGracePeriod)))
+            try
             {
-                await ProcessAsync(item, itemCts.Token).ConfigureAwait(false);
+                item = await store.Queue.TakeNextAsync(CoolingDownAccounts(), ct).ConfigureAwait(false);
+                if (item is not null)
+                {
+                    // 終了の指示が出ても、猶予の間は処理中の1通を続ける
+                    using (var itemCts = new CancellationTokenSource())
+                    using (ct.Register(() => itemCts.CancelAfter(ItemGracePeriod)))
+                    {
+                        await ProcessAsync(item, itemCts.Token).ConfigureAwait(false);
+                    }
+
+                    if (item.TrialRunId is { } trialRunId)
+                    {
+                        await UpdateTrialAsync(trialRunId, CancellationToken.None).ConfigureAwait(false);
+                    }
+                }
             }
-
-            if (item.TrialRunId is { } trialRunId)
+            finally
             {
-                await UpdateTrialAsync(trialRunId, CancellationToken.None).ConfigureAwait(false);
+                gate.Exit(); // 完全停止などの切り替えを待っている側に、処理中の1通が終わったことを知らせる
             }
         }
 
         status.SetPendingCount(await store.Queue.CountPendingAsync(ct).ConfigureAwait(false));
         return item is not null;
     }
+
+    /// <summary>判定してよいか。稼働中か低負荷で継続のときで、llama-server が準備できていること。</summary>
+    private bool CanJudge() =>
+        runModes.Current.Mode is RunMode.Running or RunMode.LowLoad
+        && runtime.Running is not null
+        && time.GetUtcNow() >= _llmCooldownUntil;
 
     private async Task ProcessAsync(QueueItem item, CancellationToken ct)
     {

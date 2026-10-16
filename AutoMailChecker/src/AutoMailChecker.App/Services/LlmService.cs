@@ -1,75 +1,66 @@
 using AutoMailChecker.Core;
-using AutoMailChecker.Llm;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace AutoMailChecker.Services;
 
 /// <summary>
-/// llama-server を起動し、落ちたら起動し直す。起動できない、または短い間に落ち続けるときは判定を保留し（処理待ちは溜まる）、
-/// トレイで知らせて 30 分後にもう一度試す。終了時は llama-server を止めてメモリを空ける。
-/// 運転モード（一時停止・完全停止・低負荷）による切り替えは開発ステップ5で足す。
+/// 運転モードに合わせて llama-server を起動・終了・切り替える（シーケンス SQ-2）。
+/// - 稼働中: 通常（GPU 使用）で起動 / 低負荷で継続: CPU のみ・2 スレッドで起動し直す
+/// - 判定保留: そのまま（モデルを読み直さないので再開が速い） / 完全停止: 終了してメモリと VRAM を空ける
+/// 切り替えは処理中の1通が終わってから行う。起動に失敗したり、落ち続けたりしたら判定を保留して知らせ、30 分後にもう一度試す。
 /// </summary>
 public sealed class LlmService(
-    LlamaServerManager server, QueueSignal queueSignal, IStatusReporter status, TimeProvider time, ILogger<LlmService> logger)
-    : BackgroundService
+    ILlmRuntime server, IRunModeSource runModes, ProcessingGate gate, QueueSignal queueSignal,
+    IStatusReporter status, TimeProvider time, ILogger<LlmService> logger) : BackgroundService
 {
     public const string StatusSource = "AI";
 
     /// <summary>この回数続けて落ちたら、しばらく起動し直さない。</summary>
     private const int MaxConsecutiveCrashes = 3;
 
-    private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(30);
+    internal static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan CrashRestartDelay = TimeSpan.FromSeconds(10);
 
     /// <summary>これより長く動いていたら、落ちた回数を数え直す。</summary>
     private static readonly TimeSpan StableUptime = TimeSpan.FromMinutes(10);
 
+    private readonly SemaphoreSlim _wake = new(0, 1);
+    private CancellationTokenSource _modeChanged = new();
+    private DateTimeOffset _retryAt = DateTimeOffset.MinValue;
+    private long _startedAt;
+    private int _crashes;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var crashes = 0;
+        runModes.Changed += OnModeChanged;
         try
         {
             while (true)
             {
-                try
-                {
-                    await server.StartAsync(LlmProfile.Normal, stoppingToken).ConfigureAwait(false);
-                }
-                catch (LlmStartException ex)
-                {
-                    logger.LogError("llama-server を起動できません。{Minutes} 分後にもう一度試します: {Message}",
-                        RetryAfterFailure.TotalMinutes, ex.Message);
-                    status.ReportError(StatusSource, $"llama-server を起動できません（判定保留中）: {ex.Message}");
-                    await Task.Delay(RetryAfterFailure, time, stoppingToken).ConfigureAwait(false);
-                    continue;
-                }
+                var retryIn = await ReconcileAsync(stoppingToken).ConfigureAwait(false);
 
-                status.ClearError(StatusSource);
-                queueSignal.Notify(); // 溜まっていた分の判定を始める
+                // 運転モードが変わるか、llama-server が落ちるか、再試行の時刻になるまで待つ
+                using var iteration = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                var exited = server.WaitForUnexpectedExitAsync(iteration.Token);
+                var woken = _wake.WaitAsync(retryIn ?? Timeout.InfiniteTimeSpan, iteration.Token);
+                var first = await Task.WhenAny(exited, woken).ConfigureAwait(false);
+                stoppingToken.ThrowIfCancellationRequested();
+                await iteration.CancelAsync().ConfigureAwait(false);
 
-                var startedAt = time.GetTimestamp();
-                await server.WaitForUnexpectedExitAsync(stoppingToken).ConfigureAwait(false);
-
-                crashes = time.GetElapsedTime(startedAt) > StableUptime ? 1 : crashes + 1;
-                if (crashes >= MaxConsecutiveCrashes)
+                if (first == exited && exited.IsCompletedSuccessfully)
                 {
-                    logger.LogError("llama-server が続けて {Crashes} 回終了しました。{Minutes} 分後にもう一度試します。",
-                        crashes, RetryAfterFailure.TotalMinutes);
-                    status.ReportError(StatusSource, "llama-server が終了を繰り返しています（判定保留中）");
-                    await Task.Delay(RetryAfterFailure, time, stoppingToken).ConfigureAwait(false);
-                    crashes = 0;
-                }
-                else
-                {
-                    status.ReportError(StatusSource, "llama-server が終了しました（起動し直しています）");
-                    await Task.Delay(CrashRestartDelay, time, stoppingToken).ConfigureAwait(false);
+                    OnCrashed();
                 }
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             // 終了時
+        }
+        finally
+        {
+            runModes.Changed -= OnModeChanged;
         }
     }
 
@@ -78,5 +69,99 @@ public sealed class LlmService(
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
         // llama-server を止めてメモリと VRAM を空けてから終える
         await server.StopAsync(CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>いまの運転モードに合わせて llama-server を起動・終了する。次に試すまでの時間を返す（待つ必要がなければ null）。</summary>
+    internal async Task<TimeSpan?> ReconcileAsync(CancellationToken ct)
+    {
+        var mode = runModes.Current.Mode;
+        var running = server.Running;
+        LlmProfile? desired = mode switch
+        {
+            RunMode.Running => LlmProfile.Normal,
+            RunMode.LowLoad => LlmProfile.LowLoad,
+            RunMode.Stopped => null,
+            _ => running, // 判定保留: 起動したまま（止まっていれば止まったまま）
+        };
+        if (desired == running)
+        {
+            return null;
+        }
+
+        var now = time.GetUtcNow();
+        if (desired is not null && now < _retryAt)
+        {
+            return _retryAt - now; // 起動に失敗して待っているところ
+        }
+
+        // 処理中の1通が終わるのを待ってから切り替える（新しい1通は取らせない）
+        using (await gate.HoldAsync(ct).ConfigureAwait(false))
+        {
+            if (desired is not { } profile)
+            {
+                await server.StopAsync(ct).ConfigureAwait(false);
+                logger.LogInformation("完全停止のため llama-server を終了しました（{Reason}）。", runModes.Current.Reason ?? "");
+                return null;
+            }
+
+            // 読み込み中に運転モードが変わったら（ゲームを起動した、など）、待たずに打ち切る
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _modeChanged.Token);
+            try
+            {
+                await server.StartAsync(profile, linked.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                logger.LogInformation("llama-server の起動中に運転モードが変わったので、起動を取りやめました。");
+                return null;
+            }
+            catch (LlmStartException ex)
+            {
+                _retryAt = time.GetUtcNow() + RetryAfterFailure;
+                logger.LogError("llama-server を起動できません。{Minutes} 分後にもう一度試します: {Message}",
+                    RetryAfterFailure.TotalMinutes, ex.Message);
+                status.ReportError(StatusSource, $"llama-server を起動できません（判定保留中）: {ex.Message}");
+                return RetryAfterFailure;
+            }
+        }
+
+        _retryAt = DateTimeOffset.MinValue;
+        _startedAt = time.GetTimestamp();
+        status.ClearError(StatusSource);
+        queueSignal.Notify(); // 溜まっていた分の判定を始める
+        return null;
+    }
+
+    private void OnCrashed()
+    {
+        _crashes = time.GetElapsedTime(_startedAt) > StableUptime ? 1 : _crashes + 1;
+        if (_crashes >= MaxConsecutiveCrashes)
+        {
+            logger.LogError("llama-server が続けて {Crashes} 回終了しました。{Minutes} 分後にもう一度試します。",
+                _crashes, RetryAfterFailure.TotalMinutes);
+            status.ReportError(StatusSource, "llama-server が終了を繰り返しています（判定保留中）");
+            _retryAt = time.GetUtcNow() + RetryAfterFailure;
+            _crashes = 0;
+        }
+        else
+        {
+            status.ReportError(StatusSource, "llama-server が終了しました（起動し直しています）");
+            _retryAt = time.GetUtcNow() + CrashRestartDelay;
+        }
+    }
+
+    internal void OnModeChanged(object? sender, RunModeState state)
+    {
+        // 起動中なら打ち切らせ、待っているループを起こす
+        // 古いものは起動側がまだ参照しているかもしれないので Dispose しない（タイマーを持たないので後始末は要らない）
+        Interlocked.Exchange(ref _modeChanged, new CancellationTokenSource()).Cancel();
+        _retryAt = DateTimeOffset.MinValue;
+        try
+        {
+            _wake.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+        }
     }
 }

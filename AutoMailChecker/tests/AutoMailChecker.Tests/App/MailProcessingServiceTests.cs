@@ -17,6 +17,8 @@ public sealed class MailProcessingServiceTests : IDisposable
     private readonly FakeAccounts _accounts = new();
     private readonly FakeClassifier _classifier = new();
     private readonly FakeRuntime _runtime = new();
+    private readonly FakeRunModes _runModes = new();
+    private readonly ProcessingGate _gate = new();
     private AppStatusService _status = null!;
     private MailProcessingService _service = null!;
 
@@ -246,6 +248,54 @@ public sealed class MailProcessingServiceTests : IDisposable
         Assert.False(await _store.ProcessedMessages.ContainsAsync("gmail1", "<t31@example.com>", Ct)); // お試しは新着と独立
     }
 
+    [Theory]
+    [InlineData(RunMode.Stopped)]
+    [InlineData(RunMode.Held)]
+    public async Task 停止中に届いたメールは溜めておき_再開したら古い順に処理する(RunMode paused)
+    {
+        await _store.InitializeAsync(Ct);
+        _runModes.Set(paused, "Steamのゲームを検知");
+        for (uint uid = 50; uid < 55; uid++)
+        {
+            await EnqueueAsync(Gmail, uid, "a@example.com", "件名", $"<p{uid}@example.com>");
+        }
+
+        Assert.False(await _service.ProcessNextAsync(Ct));
+        Assert.Equal(5, _status.Current.PendingCount);
+
+        _runModes.Set(RunMode.Running);
+        while (await _service.ProcessNextAsync(Ct))
+        {
+        }
+
+        Assert.Equal([50u, 51u, 52u, 53u, 54u], _classifier.SeenUids);
+        Assert.Equal(0, _status.Current.PendingCount);
+    }
+
+    [Fact]
+    public async Task 低負荷で継続のときは判定を続ける()
+    {
+        await _store.InitializeAsync(Ct);
+        _runModes.Set(RunMode.LowLoad, "VS Code起動中");
+        await EnqueueAsync(Gmail, 56, "a@example.com", "件名", "<m56@example.com>");
+
+        Assert.True(await _service.ProcessNextAsync(Ct));
+    }
+
+    [Fact]
+    public async Task llama_serverの切り替え中は取り出さない()
+    {
+        await _store.InitializeAsync(Ct);
+        await EnqueueAsync(Gmail, 57, "a@example.com", "件名", "<m57@example.com>");
+
+        using (await _gate.HoldAsync(Ct))
+        {
+            Assert.False(await _service.ProcessNextAsync(Ct));
+        }
+
+        Assert.True(await _service.ProcessNextAsync(Ct));
+    }
+
     [Fact]
     public async Task AIの準備ができるまでは取り出さない()
     {
@@ -378,8 +428,8 @@ public sealed class MailProcessingServiceTests : IDisposable
         });
         _status = new AppStatusService(config);
         _service = new MailProcessingService(
-            _store, _accounts, _classifier, _runtime, new ActionPolicy(), config, new QueueSignal(), _status, _time,
-            NullLogger<MailProcessingService>.Instance);
+            _store, _accounts, _classifier, _runtime, new ActionPolicy(), _runModes, _gate, config, new QueueSignal(), _status,
+            _time, NullLogger<MailProcessingService>.Instance);
     }
 
     private async Task<MailRef> EnqueueAsync(FakeMailbox mailbox, uint uid, string from, string subject, string messageId)

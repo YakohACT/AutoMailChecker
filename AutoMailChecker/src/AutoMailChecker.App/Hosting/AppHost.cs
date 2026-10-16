@@ -8,6 +8,7 @@ using AutoMailChecker.Mail.Imap;
 using AutoMailChecker.Persistence;
 using AutoMailChecker.Services;
 using AutoMailChecker.Windows.Credentials;
+using AutoMailChecker.Windows.Pause;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -70,8 +71,17 @@ public static class AppHost
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<ILogger<LlamaServerManager>>()));
         services.AddSingleton<ILlmRuntime>(sp => sp.GetRequiredService<LlamaServerManager>());
+        services.AddSingleton<ILlamaEndpoint>(sp => sp.GetRequiredService<LlamaServerManager>());
         services.AddSingleton<IMailClassifier>(sp => new LlamaClassifier(
             sp.GetRequiredService<LlamaServerManager>(), sp.GetRequiredService<ILogger<LlamaClassifier>>()));
+
+        // 停止・再開（手動操作、ゲーム・全画面の検知）
+        services.AddSingleton<ISystemSnapshotSource, WindowsSystemSnapshot>();
+        services.AddSingleton<IGameLibraryLocator, GameLibraryLocator>();
+        services.AddSingleton<PauseController>();
+        services.AddSingleton<IRunModeController>(sp => sp.GetRequiredService<PauseController>());
+        services.AddSingleton<IRunModeSource>(sp => sp.GetRequiredService<PauseController>());
+        services.AddSingleton<ProcessingGate>();
 
         // 振り分け（元に戻す、お試し仕分け）
         services.AddSingleton<IUndoService, UndoService>();
@@ -80,11 +90,12 @@ public static class AppHost
         // 終了時は処理中の1通を最大2分待ち、そのあと llama-server を止める
         services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromMinutes(3));
 
-        // 起動順: 状態 DB の初期化 → 設定ファイルの監視 → 定期処理 → AI → メールの監視と処理
+        // 起動順: 状態 DB の初期化 → 設定ファイルの監視 → 定期処理 → 運転モード → AI → メールの監視と処理
         // 終了は逆順（処理 → 監視 → AI の停止）
         services.AddHostedService<StateStoreInitializer>();
         services.AddHostedService(sp => sp.GetRequiredService<ConfigService>());
         services.AddHostedService<HistoryRetentionService>();
+        services.AddHostedService<RunModeService>();
         services.AddHostedService<LlmService>();
         services.AddHostedService<MailWatchService>();
         services.AddHostedService<MailProcessingService>();

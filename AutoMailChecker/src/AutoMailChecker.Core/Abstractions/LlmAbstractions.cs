@@ -26,6 +26,9 @@ public interface ILlmRuntime
     Task StartAsync(LlmProfile profile, CancellationToken ct);
 
     Task StopAsync(CancellationToken ct);
+
+    /// <summary>起動中の llama-server が予期せず終了するまで待つ（意図して止めたときは完了しない）。</summary>
+    Task WaitForUnexpectedExitAsync(CancellationToken ct);
 }
 
 /// <summary>AI の出力が不正、または時間切れで判定できなかった。メールは移動せず「判定失敗」として記録する。</summary>

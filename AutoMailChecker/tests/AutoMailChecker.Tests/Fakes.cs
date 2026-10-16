@@ -143,12 +143,63 @@ internal sealed class FakeMailbox(string accountId) : IMailReader, IItemFolderMo
     }
 }
 
+/// <summary>llama-server の代わり。起動・終了を記録し、落ちたことを真似られる。</summary>
 internal sealed class FakeRuntime : ILlmRuntime
 {
+    private TaskCompletionSource _exit = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     public LlmProfile? Running { get; set; } = LlmProfile.Normal;
     public string ModelName => "test-model";
-    public Task StartAsync(LlmProfile profile, CancellationToken ct) => throw new NotSupportedException();
-    public Task StopAsync(CancellationToken ct) => throw new NotSupportedException();
+    public List<string> Calls { get; } = [];
+    public Exception? StartFailure { get; set; }
+
+    /// <summary>起動にかかる時間を真似る（キャンセルされたら OperationCanceledException）。</summary>
+    public Func<CancellationToken, Task>? Loading { get; set; }
+
+    public async Task StartAsync(LlmProfile profile, CancellationToken ct)
+    {
+        Calls.Add($"start:{profile}");
+        if (Loading is { } loading)
+        {
+            await loading(ct);
+        }
+
+        if (StartFailure is { } failure)
+        {
+            throw failure;
+        }
+
+        Running = profile;
+    }
+
+    public Task StopAsync(CancellationToken ct)
+    {
+        Calls.Add("stop");
+        Running = null;
+        return Task.CompletedTask;
+    }
+
+    public Task WaitForUnexpectedExitAsync(CancellationToken ct) => _exit.Task.WaitAsync(ct);
+
+    public void Crash()
+    {
+        Running = null;
+        Interlocked.Exchange(ref _exit, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).TrySetResult();
+    }
+}
+
+/// <summary>運転モードを手で切り替える。</summary>
+internal sealed class FakeRunModes : IRunModeSource
+{
+    public RunModeState Current { get; private set; } = RunModeState.Running;
+
+    public event EventHandler<RunModeState>? Changed;
+
+    public void Set(RunMode mode, string? reason = null)
+    {
+        Current = new RunModeState(mode, reason, null);
+        Changed?.Invoke(this, Current);
+    }
 }
 
 internal sealed class FakeClassifier : IMailClassifier
@@ -158,6 +209,7 @@ internal sealed class FakeClassifier : IMailClassifier
     public Exception? Failure { get; set; }
     public int Calls { get; private set; }
     public MailSnapshot? LastMail { get; private set; }
+    public List<uint> SeenUids { get; } = [];
 
     public string PromptVersion => "p1";
 
@@ -165,6 +217,7 @@ internal sealed class FakeClassifier : IMailClassifier
     {
         Calls++;
         LastMail = mail;
+        SeenUids.Add(mail.Header.Ref.Uid);
         return Failure is not null ? throw Failure : Task.FromResult(ResultFor?.Invoke(mail) ?? Result);
     }
 }
