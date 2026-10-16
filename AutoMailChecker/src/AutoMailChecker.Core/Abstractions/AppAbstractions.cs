@@ -1,0 +1,46 @@
+namespace AutoMailChecker.Core;
+
+/// <summary>現在の運転モード。手動操作とゲーム・全画面の検知から決まる。</summary>
+public interface IRunModeSource
+{
+    RunMode Current { get; }
+
+    event EventHandler<RunMode>? Changed;
+}
+
+/// <summary>
+/// Windows 資格情報マネージャー（汎用資格情報）。パスワードは画面にも設定ファイルにも出さない。
+/// </summary>
+public interface ICredentialStore
+{
+    /// <summary>登録されていなければ null。</summary>
+    string? ReadSecret(string key);
+
+    void WriteSecret(string key, string userName, string secret);
+}
+
+/// <summary>トレイアイコンに出す状態。</summary>
+public interface IAppStatus
+{
+    AppStatusSnapshot Current { get; }
+
+    event EventHandler<AppStatusSnapshot>? Changed;
+}
+
+/// <summary>トレイのアイコンとツールチップに出す内容。</summary>
+public sealed record AppStatusSnapshot(
+    RunMode Mode,
+    string? ModeReason,
+    DateTimeOffset? HeldUntil,
+    int PendingCount,
+    TrialProgress? Trial,
+    IReadOnlyList<StatusError> Errors)
+{
+    public static AppStatusSnapshot Initial { get; } = new(RunMode.Running, null, null, 0, null, []);
+}
+
+/// <summary>お試し仕分けの進み具合。</summary>
+public sealed record TrialProgress(long TrialRunId, int Processed, int Total);
+
+/// <summary>トレイに出すエラー。Source はアカウント ID や「設定」など、どこで起きたかを示す。</summary>
+public sealed record StatusError(string Source, string Message);

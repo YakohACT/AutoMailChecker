@@ -1,0 +1,111 @@
+{
+  // AutoMailChecker の設定ファイル。初回起動時にこの内容で作られる。
+  // 項目と広告の扱いは設定画面からも編集できる（画面から保存するとコメントは残らない。保存前の内容は config.jsonc.bak に退避される）。
+  // アカウント追加とモデル変更だけは再起動が必要。それ以外は保存した時点で反映される。
+
+  // iCloud 1つ、Gmail 3つ。idは自由に付けてよい（項目のfoldersのキーになる）
+  // パスワードは設定ファイルに書かず、Windows資格情報マネージャー（credentialKeyの名前）に保存する
+  "accounts": [
+    { "id": "icloud", "host": "imap.mail.me.com", "port": 993,
+      "user": "yourname",                          // 失敗したらフルアドレス
+      "auth": "appPassword",
+      "credentialKey": "AutoMailChecker/icloud",   // 資格情報マネージャーの名前
+      "watchFolders": ["INBOX"],                    // 迷惑メールフォルダーは指定不可
+      "allowMove": true },
+    { "id": "gmail1", "host": "imap.gmail.com", "port": 993,
+      "user": "first@gmail.com", "auth": "appPassword",
+      "credentialKey": "AutoMailChecker/gmail1",
+      "watchFolders": ["INBOX"], "allowMove": true },
+    { "id": "gmail2", "host": "imap.gmail.com", "port": 993,
+      "user": "second@gmail.com", "auth": "appPassword",
+      "credentialKey": "AutoMailChecker/gmail2",
+      "watchFolders": ["INBOX"], "allowMove": true },
+    { "id": "gmail3", "host": "imap.gmail.com", "port": 993,
+      "user": "third@gmail.com", "auth": "appPassword",
+      "credentialKey": "AutoMailChecker/gmail3",
+      "watchFolders": ["INBOX"], "allowMove": true }
+  ],
+
+  // 除外する差出人。a@b は完全一致、@b はドメイン一致（大文字小文字は区別しない）
+  "ignoreSenders": ["noreply@example.com", "@ads.example.jp"],
+
+  // 項目と振り分け先。priorityが小さいほど優先（複数該当時に使う）
+  // foldersには必ずそのアカウント自身のフォルダー名を書く（他アカウントは指定できない）
+  // "enabled": false を書くとその項目を無効化（省略時は有効）。通常は設定画面から編集する
+  "items": [
+    { "id": "important", "label": "重要", "priority": 1,
+      "description": "期限があり、自分の返信・提出・支払い・手続きが必要なもの",
+      "examples": ["期限付きの書類提出依頼", "日程調整への回答依頼", "支払期限のある請求"],
+      "counterExamples": ["予約確定だけの通知", "利用明細の通知", "規約改定などのお知らせ"],
+      "folders": { "icloud": "重要", "gmail1": "AI/重要", "gmail2": "AI/重要", "gmail3": "AI/重要" } },
+    { "id": "reservation", "label": "予約関連", "priority": 2,
+      "description": "予約の確定・変更・取消・前日案内、チケットや宿泊・飲食店の予約通知",
+      "examples": ["ホテルの予約確定", "飲食店の予約リマインド", "チケットの発券通知"],
+      "counterExamples": ["予約サイトのセール案内"],
+      "folders": { "icloud": "予約関連", "gmail1": "AI/予約関連", "gmail2": "AI/予約関連", "gmail3": "AI/予約関連" } },
+    { "id": "payment", "label": "決済履歴", "priority": 3,
+      "description": "クレジットカード・銀行・決済サービスからの利用通知、引き落とし・振込・入出金の通知、利用明細の確定通知",
+      "examples": ["カード利用のお知らせ", "引き落とし完了", "振込入金のお知らせ"],
+      "counterExamples": ["カード会社のキャンペーン案内", "支払期限のある請求"],
+      "folders": { "icloud": "決済履歴", "gmail1": "AI/決済履歴", "gmail2": "AI/決済履歴", "gmail3": "AI/決済履歴" } },
+    { "id": "payslip", "label": "給与明細", "priority": 4,
+      "description": "勤務先や給与計算サービスからの給与明細・賞与明細の通知（銀行からの給与入金通知は決済履歴）",
+      "examples": ["給与明細の発行通知", "賞与明細の発行通知"],
+      "counterExamples": ["銀行からの給与入金通知"],
+      "folders": { "icloud": "給与明細", "gmail1": "AI/給与明細", "gmail2": "AI/給与明細", "gmail3": "AI/給与明細" } }
+  ],
+
+  // 広告の扱い。"ignore"（受信トレイに残す）または "move"（広告用フォルダーへ）
+  "advertisement": {
+    "mode": "ignore",
+    "folders": { "icloud": "広告", "gmail1": "AI/広告", "gmail2": "AI/広告", "gmail3": "AI/広告" }
+  },
+
+  "policy": {
+    "errorPopup": false,                 // エラー時もポップアップは出さず、トレイアイコンで示す
+    "minConfidence": "medium",          // これ未満の確信度なら移動しない（"high" または "medium"）
+    "autoSort": false                    // 新着の自動仕分け。お試し仕分けで確かめてからtrueにする
+  },
+
+  "trial": {
+    "maxMessages": 200                   // お試し仕分けの件数上限（1〜1000）
+  },
+
+  "history": {
+    "retentionDays": 90                  // 判定履歴の保持日数（7〜365）
+  },
+
+  "llm": {
+    "serverExe": "C:\\tools\\llama.cpp\\llama-server.exe",
+    "model": "D:\\models\\Qwen3.5-9B-Q4_K_M.gguf",
+    "port": 8089,
+    "ctxSize": 8192,
+    "nCpuMoe": null,                     // 35B-A3Bのときだけ数値を入れる
+    "threads": 4,
+    "maxBodyChars": 4000,
+    "extraArgs": ["--no-mmproj", "--reasoning", "off", "--prio", "-1"],
+    "lowLoad": { "gpuLayers": 0, "threads": 2 }  // 「低負荷で継続」中の起動設定
+  },
+
+  "pause": {
+    // Steam・Epic・DMMのゲームは固定ルールで常に検知（ここには書かない）
+    "dmmGameFolder": "D:\\DMMGames",      // 例。DMMのゲームのインストール先
+    // mode: "stop"（完全停止、省略時）または "lowLoad"（低負荷で継続）
+    // "enabled": false を書くとそのルールを一時的に無効化（省略時は有効）
+    "apps": [                               // 設定画面から増減する
+      { "name": "osu!",                "exe": ["osu!.exe"] },
+      { "name": "Minecraft（統合版）",  "exe": ["Minecraft.Windows.exe"] },
+      { "name": "Minecraft（Java版）",  "exe": ["javaw.exe"], "titleContains": "Minecraft" },
+      { "name": "雀魂",                "titleContains": "雀魂" },
+      { "name": "Roblox",              "exe": ["RobloxPlayerBeta.exe"] },
+      { "name": "OBS",                 "exe": ["obs64.exe"] },
+      { "name": "VS Code",             "exe": ["Code.exe"], "mode": "lowLoad" },
+      { "name": "Visual Studio",       "exe": ["devenv.exe"], "mode": "lowLoad" },
+      { "name": "IntelliJ IDEA",       "exe": ["idea64.exe"], "mode": "lowLoad" },
+      { "name": "Unity",               "exe": ["Unity.exe"], "mode": "lowLoad" }
+    ],
+    "fullscreenDetect": true,             // 重い場合はfalse
+    "pollSeconds": 5,                     // 2〜60
+    "resumeDelaySeconds": 60              // 0〜600
+  }
+}

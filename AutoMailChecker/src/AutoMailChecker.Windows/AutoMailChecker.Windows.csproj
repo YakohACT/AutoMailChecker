@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- トレイ（WinForms の NotifyIcon）、各ウィンドウ（WPF）、ゲーム検知、資格情報 -->
+  <PropertyGroup>
+    <TargetFramework>$(DotNetVersion)-windows</TargetFramework>
+    <RootNamespace>AutoMailChecker.Windows</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WPF と WinForms で同名の型（Application、MessageBox など）がぶつかるため、暗黙の using から外す -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <!-- WPF では System.IO が暗黙の using に入らないので足す -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoMailChecker.Core\AutoMailChecker.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoMailChecker.Tests" />
+  </ItemGroup>
+
+</Project>

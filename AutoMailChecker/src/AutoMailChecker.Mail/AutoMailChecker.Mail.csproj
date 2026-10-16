@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- MailKit による IMAP 実装と、HTML メールのテキスト化 -->
+  <PropertyGroup>
+    <TargetFramework>$(DotNetVersion)</TargetFramework>
+    <RootNamespace>AutoMailChecker.Mail</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoMailChecker.Core\AutoMailChecker.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoMailChecker.Tests" />
+  </ItemGroup>
+
+</Project>

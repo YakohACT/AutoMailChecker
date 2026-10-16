@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ドメイン層。外部ライブラリにもWindowsにも依存させない（パッケージ参照を追加しないこと）。
+    他のプロジェクトはすべてここへ依存する。
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(DotNetVersion)</TargetFramework>
+    <RootNamespace>AutoMailChecker.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\DefaultConfig.jsonc" LogicalName="AutoMailChecker.Core.DefaultConfig.jsonc" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoMailChecker.Tests" />
+  </ItemGroup>
+
+</Project>

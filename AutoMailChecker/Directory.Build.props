@@ -1,0 +1,17 @@
+<Project>
+  <!-- ソリューション内の全プロジェクトに共通する設定 -->
+  <PropertyGroup>
+    <!--
+      対象の .NET。仕様どおり .NET 10 とする。
+      .NET 10 SDK が入っていない環境で一時的に確かめるときだけ、
+      dotnet build -p:DotNetVersion=net9.0 のように上書きする。
+    -->
+    <DotNetVersion Condition="'$(DotNetVersion)' == ''">net10.0</DotNetVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Company>AutoMailChecker</Company>
+    <Product>AutoMailChecker</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

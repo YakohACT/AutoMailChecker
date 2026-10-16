@@ -1,0 +1,21 @@
+<Project>
+  <!-- NuGet パッケージの版はここで一元管理する（各 csproj には版を書かない） -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- 間接的に入るパッケージも下の版に固定する（脆弱性のある版を避けるため） -->
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="AngleSharp" Version="1.8.5" />
+    <PackageVersion Include="MailKit" Version="4.18.1" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+    <!-- MimeKit が既定で参照する 10.0.0 には既知の脆弱性がある（GHSA-846f-f764-76mx ほか） -->
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <!-- テスト -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,73 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37806.7
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMailChecker.App", "src\AutoMailChecker.App\AutoMailChecker.App.csproj", "{128AD019-3FD6-4E4E-B567-F491EC45B1B1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{AD0F60BF-D19B-442E-9160-36AA886EF495}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4AE9D911-4817-44DD-886F-903D0792F620}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6DE52CA7-688C-4613-94C4-857AB5535BE2}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMailChecker.Core", "src\AutoMailChecker.Core\AutoMailChecker.Core.csproj", "{1DBC3CB7-4F2D-44E4-B6E7-8A3A5417A9C4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMailChecker.Mail", "src\AutoMailChecker.Mail\AutoMailChecker.Mail.csproj", "{C5885E19-E323-41DE-B399-9096B59CBF9B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMailChecker.Llm", "src\AutoMailChecker.Llm\AutoMailChecker.Llm.csproj", "{C16CA0F6-DF69-4204-BFFF-65829A8F4B0F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMailChecker.Windows", "src\AutoMailChecker.Windows\AutoMailChecker.Windows.csproj", "{5EF63226-2D69-4872-9CA3-373E5AB6903A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutoMailChecker.Tests", "tests\AutoMailChecker.Tests\AutoMailChecker.Tests.csproj", "{D5A9748D-B111-4247-BA59-328F9AB5F436}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{128AD019-3FD6-4E4E-B567-F491EC45B1B1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{128AD019-3FD6-4E4E-B567-F491EC45B1B1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{128AD019-3FD6-4E4E-B567-F491EC45B1B1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{128AD019-3FD6-4E4E-B567-F491EC45B1B1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1DBC3CB7-4F2D-44E4-B6E7-8A3A5417A9C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1DBC3CB7-4F2D-44E4-B6E7-8A3A5417A9C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1DBC3CB7-4F2D-44E4-B6E7-8A3A5417A9C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1DBC3CB7-4F2D-44E4-B6E7-8A3A5417A9C4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5885E19-E323-41DE-B399-9096B59CBF9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5885E19-E323-41DE-B399-9096B59CBF9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5885E19-E323-41DE-B399-9096B59CBF9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5885E19-E323-41DE-B399-9096B59CBF9B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C16CA0F6-DF69-4204-BFFF-65829A8F4B0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C16CA0F6-DF69-4204-BFFF-65829A8F4B0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C16CA0F6-DF69-4204-BFFF-65829A8F4B0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C16CA0F6-DF69-4204-BFFF-65829A8F4B0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5EF63226-2D69-4872-9CA3-373E5AB6903A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EF63226-2D69-4872-9CA3-373E5AB6903A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EF63226-2D69-4872-9CA3-373E5AB6903A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EF63226-2D69-4872-9CA3-373E5AB6903A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5A9748D-B111-4247-BA59-328F9AB5F436}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5A9748D-B111-4247-BA59-328F9AB5F436}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5A9748D-B111-4247-BA59-328F9AB5F436}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5A9748D-B111-4247-BA59-328F9AB5F436}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{128AD019-3FD6-4E4E-B567-F491EC45B1B1} = {AD0F60BF-D19B-442E-9160-36AA886EF495}
+		{1DBC3CB7-4F2D-44E4-B6E7-8A3A5417A9C4} = {AD0F60BF-D19B-442E-9160-36AA886EF495}
+		{C5885E19-E323-41DE-B399-9096B59CBF9B} = {AD0F60BF-D19B-442E-9160-36AA886EF495}
+		{C16CA0F6-DF69-4204-BFFF-65829A8F4B0F} = {AD0F60BF-D19B-442E-9160-36AA886EF495}
+		{5EF63226-2D69-4872-9CA3-373E5AB6903A} = {AD0F60BF-D19B-442E-9160-36AA886EF495}
+		{D5A9748D-B111-4247-BA59-328F9AB5F436} = {4AE9D911-4817-44DD-886F-903D0792F620}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F4ECBD37-37DE-4FFD-8B64-F2E450F6BA13}
+	EndGlobalSection
+EndGlobal

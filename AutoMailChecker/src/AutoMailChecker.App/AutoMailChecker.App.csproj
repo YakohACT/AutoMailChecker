@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 起動と DI の組み立て（Generic Host）。実行ファイル名は AutoMailChecker.exe -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(DotNetVersion)-windows</TargetFramework>
+    <AssemblyName>AutoMailChecker</AssemblyName>
+    <RootNamespace>AutoMailChecker</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
+      WFO0003 は WinForms アプリ向けの「DPI 設定はマニフェストでなく API で」という提案。
+      このアプリの本体は WPF で、WPF の Per-Monitor DPI はマニフェストで指定するため抑止する。
+    -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WPF と WinForms で同名の型がぶつかるため、暗黙の using から外す -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <!-- WPF では System.IO が暗黙の using に入らないので足す -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AutoMailChecker.Core\AutoMailChecker.Core.csproj" />
+    <ProjectReference Include="..\AutoMailChecker.Mail\AutoMailChecker.Mail.csproj" />
+    <ProjectReference Include="..\AutoMailChecker.Llm\AutoMailChecker.Llm.csproj" />
+    <ProjectReference Include="..\AutoMailChecker.Windows\AutoMailChecker.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoMailChecker.Tests" />
+  </ItemGroup>
+
+</Project>
