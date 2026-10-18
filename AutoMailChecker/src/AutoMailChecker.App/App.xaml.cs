@@ -69,6 +69,7 @@ public partial class App : Application
                     services.GetRequiredService<ISystemSnapshotSource>(),
                     services.GetRequiredService<ICredentialStore>(),
                     services.GetRequiredService<IMailConnectionTester>(),
+                    services.GetRequiredService<ILlmConnectionTester>(),
                     services.GetRequiredService<IAutoStartRegistrar>(),
                     services.GetRequiredService<AppPaths>().LogDirectory),
                 services.GetRequiredService<IUndoService>(),

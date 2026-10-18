@@ -165,6 +165,7 @@ internal sealed class FakeRuntime : ILlmRuntime
 
     public LlmProfile? Running { get; set; } = LlmProfile.Normal;
     public string ModelName => "test-model";
+    public bool IsExternal { get; set; }
     public List<string> Calls { get; } = [];
     public Exception? StartFailure { get; set; }
 

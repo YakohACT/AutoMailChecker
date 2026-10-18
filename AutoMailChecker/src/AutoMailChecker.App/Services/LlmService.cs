@@ -9,6 +9,8 @@ namespace AutoMailChecker.Services;
 /// - 稼働中: 通常（GPU 使用）で起動 / 低負荷で継続: CPU のみ・2 スレッドで起動し直す
 /// - 判定保留: そのまま（モデルを読み直さないので再開が速い） / 完全停止: 終了してメモリと VRAM を空ける
 /// 切り替えは処理中の1通が終わってから行う。起動に失敗したり、落ち続けたりしたら判定を保留して知らせ、30 分後にもう一度試す。
+/// 接続先 URL の起動済みサーバーを使うときは、起動・終了の代わりに繋ぐ・要求を止めるだけにし、繋がらなければ 1 分後にもう一度試す
+/// （サーバーを起動するのは利用者なので、起動したらすぐ使えるようにする）。
 /// </summary>
 public sealed class LlmService(
     ILlmRuntime server, IRunModeSource runModes, ProcessingGate gate, QueueSignal queueSignal,
@@ -20,6 +22,7 @@ public sealed class LlmService(
     private const int MaxConsecutiveCrashes = 3;
 
     internal static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(30);
+    internal static readonly TimeSpan RetryAfterExternalFailure = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan CrashRestartDelay = TimeSpan.FromSeconds(10);
 
     /// <summary>これより長く動いていたら、落ちた回数を数え直す。</summary>
@@ -67,11 +70,11 @@ public sealed class LlmService(
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
-        // llama-server を止めてメモリと VRAM を空けてから終える
+        // llama-server を止めてメモリと VRAM を空けてから終える（接続先 URL のサーバーは止めない）
         await server.StopAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
-    /// <summary>いまの運転モードに合わせて llama-server を起動・終了する。次に試すまでの時間を返す（待つ必要がなければ null）。</summary>
+    /// <summary>いまの運転モードに合わせて AI を準備・後始末する。次に試すまでの時間を返す（待つ必要がなければ null）。</summary>
     internal async Task<TimeSpan?> ReconcileAsync(CancellationToken ct)
     {
         var mode = runModes.Current.Mode;
@@ -100,7 +103,10 @@ public sealed class LlmService(
             if (desired is not { } profile)
             {
                 await server.StopAsync(ct).ConfigureAwait(false);
-                logger.LogInformation("完全停止のため llama-server を終了しました（{Reason}）。", runModes.Current.Reason ?? "");
+                logger.LogInformation(server.IsExternal
+                        ? "完全停止のため AI サーバーへの要求を止めました（サーバーは起動したままです。{Reason}）。"
+                        : "完全停止のため llama-server を終了しました（{Reason}）。",
+                    runModes.Current.Reason ?? "");
                 return null;
             }
 
@@ -112,16 +118,23 @@ public sealed class LlmService(
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
-                logger.LogInformation("llama-server の起動中に運転モードが変わったので、起動を取りやめました。");
+                logger.LogInformation(server.IsExternal
+                    ? "AI サーバーへの接続中に運転モードが変わったので、接続を取りやめました。"
+                    : "llama-server の起動中に運転モードが変わったので、起動を取りやめました。");
                 return null;
             }
             catch (LlmStartException ex)
             {
-                _retryAt = time.GetUtcNow() + RetryAfterFailure;
-                logger.LogError("llama-server を起動できません。{Minutes} 分後にもう一度試します: {Message}",
-                    RetryAfterFailure.TotalMinutes, ex.Message);
-                status.ReportError(StatusSource, $"llama-server を起動できません（判定保留中）: {ex.Message}");
-                return RetryAfterFailure;
+                var retry = RetryDelay;
+                _retryAt = time.GetUtcNow() + retry;
+                logger.LogError(server.IsExternal
+                        ? "AI サーバーに接続できません。{Minutes} 分後にもう一度試します: {Message}"
+                        : "llama-server を起動できません。{Minutes} 分後にもう一度試します: {Message}",
+                    retry.TotalMinutes, ex.Message);
+                status.ReportError(StatusSource, server.IsExternal
+                    ? $"AI サーバーに接続できません（判定保留中）: {ex.Message}"
+                    : $"llama-server を起動できません（判定保留中）: {ex.Message}");
+                return retry;
             }
         }
 
@@ -132,20 +145,30 @@ public sealed class LlmService(
         return null;
     }
 
+    /// <summary>準備に失敗したあと、もう一度試すまでの時間。</summary>
+    private TimeSpan RetryDelay => server.IsExternal ? RetryAfterExternalFailure : RetryAfterFailure;
+
     private void OnCrashed()
     {
         _crashes = time.GetElapsedTime(_startedAt) > StableUptime ? 1 : _crashes + 1;
         if (_crashes >= MaxConsecutiveCrashes)
         {
-            logger.LogError("llama-server が続けて {Crashes} 回終了しました。{Minutes} 分後にもう一度試します。",
-                _crashes, RetryAfterFailure.TotalMinutes);
-            status.ReportError(StatusSource, "llama-server が終了を繰り返しています（判定保留中）");
-            _retryAt = time.GetUtcNow() + RetryAfterFailure;
+            var retry = RetryDelay;
+            logger.LogError(server.IsExternal
+                    ? "AI サーバーとの接続が続けて {Crashes} 回切れました。{Minutes} 分後にもう一度試します。"
+                    : "llama-server が続けて {Crashes} 回終了しました。{Minutes} 分後にもう一度試します。",
+                _crashes, retry.TotalMinutes);
+            status.ReportError(StatusSource, server.IsExternal
+                ? "AI サーバーとの接続が切れ続けています（判定保留中）"
+                : "llama-server が終了を繰り返しています（判定保留中）");
+            _retryAt = time.GetUtcNow() + retry;
             _crashes = 0;
         }
         else
         {
-            status.ReportError(StatusSource, "llama-server が終了しました（起動し直しています）");
+            status.ReportError(StatusSource, server.IsExternal
+                ? "AI サーバーとの接続が切れました（繋ぎ直しています）"
+                : "llama-server が終了しました（起動し直しています）");
             _retryAt = time.GetUtcNow() + CrashRestartDelay;
         }
     }

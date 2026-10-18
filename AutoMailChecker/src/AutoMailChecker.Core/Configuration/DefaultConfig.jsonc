@@ -76,6 +76,9 @@
   },
 
   "llm": {
+    // 起動済みのAIサーバー（llama-serverなど）の接続先。このPCのアドレスだけ。APIキーは設定画面から登録する
+    // 空（""）にすると、アプリが下のserverExeとmodelでllama-serverを起動・終了する
+    "endpoint": "http://127.0.0.1:8080",
     "serverExe": "C:\\tools\\llama.cpp\\llama-server.exe",
     "model": "D:\\models\\Qwen3.5-9B-Q4_K_M.gguf",
     "port": 8089,

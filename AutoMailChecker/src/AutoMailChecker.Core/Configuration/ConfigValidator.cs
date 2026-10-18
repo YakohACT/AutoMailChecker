@@ -236,14 +236,25 @@ public static partial class ConfigValidator
 
     private static void ValidateLlm(LlmConfig llm, List<ConfigIssue> issues)
     {
-        if (string.IsNullOrWhiteSpace(llm.ServerExe))
+        if (llm.UsesEndpoint)
         {
-            Add(issues, ConfigSection.Llm, "llm.serverExe", "llama-server.exe の場所を指定してください。");
+            // 起動済みのサーバーに繋ぐ。llama-server.exe とモデルファイルは使わない
+            if (LlmEndpoint.TryParse(llm.Endpoint, out var error) is null)
+            {
+                Add(issues, ConfigSection.Llm, "llm.endpoint", error!);
+            }
         }
-
-        if (string.IsNullOrWhiteSpace(llm.Model))
+        else
         {
-            Add(issues, ConfigSection.Llm, "llm.model", "モデルファイルを指定してください。");
+            if (string.IsNullOrWhiteSpace(llm.ServerExe))
+            {
+                Add(issues, ConfigSection.Llm, "llm.serverExe", "接続先 URL を使わないときは、llama-server.exe の場所を指定してください。");
+            }
+
+            if (string.IsNullOrWhiteSpace(llm.Model))
+            {
+                Add(issues, ConfigSection.Llm, "llm.model", "接続先 URL を使わないときは、モデルファイルを指定してください。");
+            }
         }
 
         ValidateRange(issues, ConfigSection.Llm, "llm.port", llm.Port, 1, 65535);

@@ -30,6 +30,7 @@ public sealed record SettingsServices(
     ISystemSnapshotSource System,
     ICredentialStore Credentials,
     IMailConnectionTester ConnectionTester,
+    ILlmConnectionTester LlmTester,
     IAutoStartRegistrar AutoStart,
     string LogDirectory);
 
@@ -50,8 +51,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         var current = services.Config.Current;
         ItemsTab = new ItemsTabViewModel(current, services.Folders, services.Rejudge, services.Store, dialogs, BuildConfig);
         PauseTab = new PauseTabViewModel(current.Pause, services.RunModes, services.System, dialogs);
-        GeneralTab = new GeneralTabViewModel(current, services.Credentials, services.ConnectionTester, services.AutoStart,
-            services.Store, dialogs, services.LogDirectory);
+        GeneralTab = new GeneralTabViewModel(current, services.Credentials, services.ConnectionTester, services.LlmTester,
+            services.AutoStart, services.Store, dialogs, services.LogDirectory);
         _selectedTabIndex = (int)tab;
 
         // 全般タブでアカウントを増減したら、項目タブの振り分け先の欄も合わせる
@@ -98,7 +99,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ErrorPopup = GeneralTab.ErrorPopup,
             },
             History = current.History with { RetentionDays = ParseOr(GeneralTab.RetentionDaysText, current.History.RetentionDays) },
-            Llm = current.Llm with { Model = GeneralTab.ModelPath.Trim() },
+            Llm = current.Llm with { Endpoint = GeneralTab.EndpointText.Trim(), Model = GeneralTab.ModelPath.Trim() },
             Pause = current.Pause with
             {
                 DmmGameFolder = string.IsNullOrWhiteSpace(PauseTab.DmmGameFolder) ? null : PauseTab.DmmGameFolder.Trim(),
@@ -145,7 +146,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
 
         ShowStatus(result.RestartRequired
-            ? "保存しました。アカウントの追加・削除とモデルの変更は、アプリを再起動すると反映されます。"
+            ? "保存しました。アカウントの追加・削除と AI の接続先・モデルの変更は、アプリを再起動すると反映されます。"
             : "保存しました。すぐに反映されます。", isError: false);
         foreach (var account in GeneralTab.Accounts)
         {
@@ -221,6 +222,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             case "pause.resumeDelaySeconds":
                 PauseTab.AddError(nameof(PauseTab.ResumeDelayText), message);
                 return $"再開までの待ち時間: {message}";
+            case "llm.endpoint":
+                GeneralTab.AddError(nameof(GeneralTab.EndpointText), message);
+                return $"AI の接続先 URL: {message}";
             case "llm.model":
                 GeneralTab.AddError(nameof(GeneralTab.ModelPath), message);
                 return $"モデルファイル: {message}";

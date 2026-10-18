@@ -51,6 +51,9 @@ public sealed class LlamaClassifierTests : IDisposable
         using var json = JsonDocument.Parse(body);
         var root = json.RootElement;
         Assert.Equal(0, root.GetProperty("temperature").GetInt32());
+        Assert.Equal(1.0, root.GetProperty("repeat_penalty").GetDouble());
+        Assert.Equal(0, root.GetProperty("presence_penalty").GetInt32());
+        Assert.Equal(0, root.GetProperty("frequency_penalty").GetInt32());
         Assert.Equal(512, root.GetProperty("max_tokens").GetInt32());
         Assert.True(root.GetProperty("cache_prompt").GetBoolean());
         Assert.False(root.GetProperty("chat_template_kwargs").GetProperty("enable_thinking").GetBoolean());
@@ -166,7 +169,7 @@ public sealed class LlamaClassifierTests : IDisposable
     [Fact]
     public async Task 起動していなければ判定失敗にせず_繋がらないことを知らせる()
     {
-        _endpoint.ApiKey = null;
+        _endpoint.Connection = null;
 
         await Assert.ThrowsAsync<LlmUnavailableException>(() => _classifier.ClassifyAsync(Mail(), Items, Ct));
         Assert.Empty(_handler.Requests);
@@ -226,8 +229,7 @@ public sealed class LlamaClassifierTests : IDisposable
 
     private sealed class FakeEndpoint : ILlamaEndpoint
     {
-        public Uri BaseAddress { get; } = new("http://127.0.0.1:8089/");
-        public string? ApiKey { get; set; } = "test-key";
+        public LlamaConnection? Connection { get; set; } = new(new Uri("http://127.0.0.1:8089/"), "test-key");
     }
 
     private sealed class FakeHandler : HttpMessageHandler

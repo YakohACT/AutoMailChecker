@@ -81,6 +81,18 @@ public sealed class ConfigServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AI_の接続先を変えたら再起動が必要と知らせる()
+    {
+        using var service = CreateService();
+        var edited = service.Current with { Llm = service.Current.Llm with { Endpoint = "http://127.0.0.1:8081" } };
+
+        var result = await service.SaveAsync(edited, Ct);
+
+        Assert.True(result.Saved);
+        Assert.True(result.RestartRequired);
+    }
+
+    [Fact]
     public async Task ファイルを直接編集したら再起動なしで反映する()
     {
         using var service = CreateService();

@@ -80,12 +80,13 @@ public sealed class AccountEditViewModel : EditableObject
 
 /// <summary>
 /// 設定ウィンドウの「全般」タブ（画面設計 SC-04）。アカウント、自動仕分け、確信度のしきい値、ポップアップ、履歴の保持日数、
-/// モデルファイル、Windows のログオン時の自動起動。
+/// AI の接続先 URL（空ならモデルファイル）、Windows のログオン時の自動起動。
 /// </summary>
 public sealed class GeneralTabViewModel : EditableObject
 {
     private readonly ICredentialStore _credentials;
     private readonly IMailConnectionTester _tester;
+    private readonly ILlmConnectionTester _llmTester;
     private readonly IAutoStartRegistrar _autoStart;
     private readonly IStateStore _store;
     private readonly ISettingsDialogs _dialogs;
@@ -95,17 +96,21 @@ public sealed class GeneralTabViewModel : EditableObject
     private bool _highConfidenceOnly;
     private bool _errorPopup;
     private string _retentionDaysText;
+    private string _endpointText;
     private string _modelPath;
+    private string _apiKeyStatus = "";
+    private string? _llmTestResult;
     private bool _autoStartEnabled;
     private string? _autoStartMessage;
     private bool _hasCompletedTrial;
 
     public GeneralTabViewModel(
-        AppConfig config, ICredentialStore credentials, IMailConnectionTester tester, IAutoStartRegistrar autoStart,
-        IStateStore store, ISettingsDialogs dialogs, string logDirectory)
+        AppConfig config, ICredentialStore credentials, IMailConnectionTester tester, ILlmConnectionTester llmTester,
+        IAutoStartRegistrar autoStart, IStateStore store, ISettingsDialogs dialogs, string logDirectory)
     {
         _credentials = credentials;
         _tester = tester;
+        _llmTester = llmTester;
         _autoStart = autoStart;
         _store = store;
         _dialogs = dialogs;
@@ -117,13 +122,17 @@ public sealed class GeneralTabViewModel : EditableObject
         _highConfidenceOnly = config.Policy.MinConfidence == Confidence.High;
         _errorPopup = config.Policy.ErrorPopup;
         _retentionDaysText = config.History.RetentionDays.ToString(CultureInfo.InvariantCulture);
+        _endpointText = config.Llm.Endpoint;
         _modelPath = config.Llm.Model;
+        RefreshApiKeyStatus();
 
         AddICloudCommand = new RelayCommand(() => AddAccount("icloud", "imap.mail.me.com"));
         AddGmailCommand = new RelayCommand(() => AddAccount("gmail", "imap.gmail.com"));
         RemoveAccountCommand = new RelayCommand(RemoveAccount, () => SelectedAccount is not null);
         RegisterPasswordCommand = new RelayCommand(RegisterPassword, () => SelectedAccount is not null);
         TestConnectionCommand = new AsyncCommand(TestConnectionAsync, () => SelectedAccount is not null);
+        RegisterApiKeyCommand = new RelayCommand(RegisterApiKey);
+        TestLlmCommand = new AsyncCommand(TestLlmAsync);
         BrowseModelCommand = new RelayCommand(() =>
         {
             if (_dialogs.PickModelFile(ModelPath) is { } path)
@@ -141,6 +150,8 @@ public sealed class GeneralTabViewModel : EditableObject
     public ICommand RemoveAccountCommand { get; }
     public ICommand RegisterPasswordCommand { get; }
     public ICommand TestConnectionCommand { get; }
+    public ICommand RegisterApiKeyCommand { get; }
+    public ICommand TestLlmCommand { get; }
     public ICommand BrowseModelCommand { get; }
     public ICommand OpenLogFolderCommand { get; }
 
@@ -183,8 +194,27 @@ public sealed class GeneralTabViewModel : EditableObject
     /// <summary>判定履歴の保持日数（7〜365、既定 90）。</summary>
     public string RetentionDaysText { get => _retentionDaysText; set => SetProperty(ref _retentionDaysText, value); }
 
-    /// <summary>モデルファイル。変更は再起動が必要。</summary>
+    /// <summary>起動済みの AI サーバーの接続先 URL。空ならモデルファイルで llama-server を起動する。変更は再起動が必要。</summary>
+    public string EndpointText
+    {
+        get => _endpointText;
+        set
+        {
+            if (SetProperty(ref _endpointText, value))
+            {
+                OnPropertyChanged(nameof(UsesModelFile));
+            }
+        }
+    }
+
+    /// <summary>接続先 URL が空なら、モデルファイルを使う（アプリが llama-server を起動する）。</summary>
+    public bool UsesModelFile => string.IsNullOrWhiteSpace(EndpointText);
+
+    /// <summary>モデルファイル。接続先 URL が空のときだけ使う。変更は再起動が必要。</summary>
     public string ModelPath { get => _modelPath; set => SetProperty(ref _modelPath, value); }
+
+    public string ApiKeyStatus { get => _apiKeyStatus; private set => SetProperty(ref _apiKeyStatus, value); }
+    public string? LlmTestResult { get => _llmTestResult; private set => SetProperty(ref _llmTestResult, value); }
 
     /// <summary>Windows のログオン時に自動で起動する（タスクスケジューラ）。切り替えるとすぐ登録・削除する。</summary>
     public bool AutoStartEnabled
@@ -247,6 +277,49 @@ public sealed class GeneralTabViewModel : EditableObject
         foreach (var account in Accounts)
         {
             account.ClearErrors();
+        }
+    }
+
+    private void RefreshApiKeyStatus()
+    {
+        try
+        {
+            ApiKeyStatus = _credentials.ReadSecret(LlmEndpoint.ApiKeyCredentialKey) is { Length: > 0 }
+                ? "API キー: 登録済み"
+                : "API キー: 未登録（サーバーを --api-key 付きで起動したときだけ必要です）";
+        }
+        catch (Win32Exception)
+        {
+            ApiKeyStatus = "API キー: 確認できません";
+        }
+    }
+
+    private void RegisterApiKey()
+    {
+        if (_dialogs.AskApiKey() is { Length: > 0 } apiKey)
+        {
+            _credentials.WriteSecret(LlmEndpoint.ApiKeyCredentialKey, "api-key", apiKey);
+            RefreshApiKeyStatus();
+            LlmTestResult = $"API キーを資格情報マネージャー（{LlmEndpoint.ApiKeyCredentialKey}）に登録しました。";
+        }
+    }
+
+    private async Task TestLlmAsync()
+    {
+        if (UsesModelFile)
+        {
+            LlmTestResult = "接続先 URL を入力してください（空のときは、アプリがモデルファイルで llama-server を起動します）。";
+            return;
+        }
+
+        LlmTestResult = "接続しています…";
+        try
+        {
+            LlmTestResult = await _llmTester.TestAsync(EndpointText, CancellationToken.None);
+        }
+        catch (LlmStartException ex)
+        {
+            LlmTestResult = ex.Message;
         }
     }
 

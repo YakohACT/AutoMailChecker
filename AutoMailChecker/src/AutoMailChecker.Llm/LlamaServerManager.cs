@@ -56,9 +56,11 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
 
     public string ModelName => Path.GetFileNameWithoutExtension(_startup.Model);
 
+    public bool IsExternal => false;
+
     public Uri BaseAddress { get; }
 
-    public string? ApiKey => _state?.ApiKey;
+    public LlamaConnection? Connection => _state is { } state ? new LlamaConnection(BaseAddress, state.ApiKey) : null;
 
     public async Task StartAsync(LlmProfile profile, CancellationToken ct)
     {

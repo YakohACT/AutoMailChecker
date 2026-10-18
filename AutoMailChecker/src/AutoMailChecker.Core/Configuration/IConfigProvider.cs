@@ -2,7 +2,7 @@ namespace AutoMailChecker.Core.Configuration;
 
 /// <summary>
 /// 設定の読み書き。ファイルの変更は監視で検知し、再起動なしで反映する。
-/// アカウントと llm の serverExe・model・port・ctxSize は、使う側が起動時の値を持ち続ける（再起動で反映）。
+/// アカウントと llm の endpoint・serverExe・model・port・ctxSize は、使う側が起動時の値を持ち続ける（再起動で反映）。
 /// </summary>
 public interface IConfigProvider
 {

@@ -95,7 +95,7 @@ public sealed class WindowRenderTests : IDisposable
         credentials.WriteSecret("AutoMailChecker/gmail1", "first@gmail.com", "x");
         var services = new AutoMailChecker.Windows.Settings.SettingsServices(
             config, new RenderCatalog(), new RenderRejudge(), store, new RenderRunModes(), new RenderSystem(), credentials,
-            new RenderTester(), new RenderAutoStart(), Path.GetTempPath());
+            new RenderTester(), new RenderTester(), new RenderAutoStart(), Path.GetTempPath());
         var settings = new AutoMailChecker.Windows.Settings.SettingsViewModel(
             services, new RenderDialogs(), AutoMailChecker.Windows.Settings.SettingsTab.Items);
         var window = Offscreen(new AutoMailChecker.Windows.Settings.SettingsWindow(settings));
@@ -108,6 +108,12 @@ public sealed class WindowRenderTests : IDisposable
         settings.SelectedTabIndex = 2;
         settings.GeneralTab.SelectedAccount = settings.GeneralTab.Accounts[1];
         Save(window, Path.Combine(outputDirectory, "settings-general.png"));
+
+        // 全般タブの下の方（AI の接続先と起動・ログ）
+        settings.GeneralTab.TestLlmCommand.Execute(null);
+        DoEvents();
+        FindVisual<System.Windows.Controls.ScrollViewer>(window, s => s.IsVisible && s.DataContext == settings.GeneralTab)?.ScrollToEnd();
+        Save(window, Path.Combine(outputDirectory, "settings-general-ai.png"));
 
         // 保存できない内容にして、赤枠と理由の出方を見る
         settings.SelectedTabIndex = 0;
@@ -163,9 +169,10 @@ public sealed class WindowRenderTests : IDisposable
         public void WriteSecret(string key, string userName, string secret) => _secrets[key] = secret;
     }
 
-    private sealed class RenderTester : IMailConnectionTester
+    private sealed class RenderTester : IMailConnectionTester, ILlmConnectionTester
     {
         public Task<string> TestAsync(AccountConfig account, CancellationToken ct) => Task.FromResult("接続できました。");
+        public Task<string> TestAsync(string endpoint, CancellationToken ct) => Task.FromResult("接続できました。");
     }
 
     private sealed class RenderAutoStart : AutoMailChecker.Windows.Startup.IAutoStartRegistrar
@@ -179,6 +186,7 @@ public sealed class WindowRenderTests : IDisposable
     {
         public bool Confirm(string message) => true;
         public string? AskPassword(string accountId, string user) => null;
+        public string? AskApiKey() => null;
         public string? PickExecutable() => null;
         public string? PickFolder(string? initialFolder) => null;
         public string? PickModelFile(string? current) => null;
@@ -293,6 +301,25 @@ public sealed class WindowRenderTests : IDisposable
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = File.Create(path);
         encoder.Save(stream);
+    }
+
+    private static T? FindVisual<T>(DependencyObject parent, Func<T, bool> match) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T found && match(found))
+            {
+                return found;
+            }
+
+            if (FindVisual(child, match) is { } nested)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>UI スレッドのメッセージを回しながら、非同期の処理が終わるのを待つ。</summary>

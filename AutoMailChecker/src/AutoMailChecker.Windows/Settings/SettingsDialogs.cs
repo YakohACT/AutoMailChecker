@@ -14,6 +14,9 @@ public interface ISettingsDialogs
     /// <summary>パスワードの入力。取り消したら null。</summary>
     string? AskPassword(string accountId, string user);
 
+    /// <summary>AI サーバーの API キーの入力。取り消したら null。</summary>
+    string? AskApiKey();
+
     string? PickExecutable();
 
     string? PickFolder(string? initialFolder);
@@ -35,9 +38,19 @@ public sealed class SettingsDialogs(Func<Window> owner) : ISettingsDialogs
         MessageBox.Show(owner(), message, AppInfo.Name, MessageBoxButton.OKCancel, MessageBoxImage.Question, MessageBoxResult.Cancel)
         == MessageBoxResult.OK;
 
-    public string? AskPassword(string accountId, string user)
+    public string? AskPassword(string accountId, string user) => AskSecret(
+        "パスワードの登録",
+        $"{accountId}（{(string.IsNullOrWhiteSpace(user) ? "ユーザー名未入力" : user)}）のパスワード",
+        "iCloud は「App用パスワード」、Gmail は「アプリ パスワード」を入力してください。Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。");
+
+    public string? AskApiKey() => AskSecret(
+        "API キーの登録",
+        "AI サーバーの API キー",
+        "llama-server を --api-key 付きで起動したときに、そこで指定したキーを入力してください。Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。");
+
+    private string? AskSecret(string title, string heading, string hint)
     {
-        var dialog = new PasswordWindow(accountId, user) { Owner = owner() };
+        var dialog = new PasswordWindow(title, heading, hint) { Owner = owner() };
         return dialog.ShowDialog() == true ? dialog.Password : null;
     }
 

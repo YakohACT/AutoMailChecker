@@ -1,14 +1,17 @@
 using System.Windows;
+using AutoMailChecker.Core;
 
 namespace AutoMailChecker.Windows.Settings;
 
-/// <summary>アプリ用パスワードの入力。入力値は ViewModel を通さず、資格情報マネージャーへ渡すだけにする。</summary>
+/// <summary>アプリ用パスワードや API キーの入力。入力値は ViewModel を通さず、資格情報マネージャーへ渡すだけにする。</summary>
 public partial class PasswordWindow : Window
 {
-    public PasswordWindow(string accountId, string user)
+    public PasswordWindow(string title, string heading, string hint)
     {
         InitializeComponent();
-        Heading.Text = $"{accountId}（{(string.IsNullOrWhiteSpace(user) ? "ユーザー名未入力" : user)}）のパスワード";
+        Title = $"{title} - {AppInfo.Name}";
+        Heading.Text = heading;
+        HintText.Text = hint;
         Loaded += (_, _) => PasswordInput.Focus();
     }
 

@@ -65,16 +65,20 @@ public static class AppHost
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<ILoggerFactory>()));
 
-        // AI（llama-server）。モデル・ポート・文脈長は起動時の設定で決まる（変更は再起動で反映）
-        services.AddSingleton(sp => new LlamaServerManager(
-            sp.GetRequiredService<IConfigProvider>(),
-            paths.RunDirectory,
-            sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<ILogger<LlamaServerManager>>()));
-        services.AddSingleton<ILlmRuntime>(sp => sp.GetRequiredService<LlamaServerManager>());
-        services.AddSingleton<ILlamaEndpoint>(sp => sp.GetRequiredService<LlamaServerManager>());
+        // AI。接続先 URL があれば起動済みのサーバーに繋ぎ、なければ llama-server を起動する。
+        // 接続先・モデル・ポート・文脈長は起動時の設定で決まる（変更は再起動で反映）
+        services.AddSingleton<ILlmRuntime>(sp =>
+        {
+            var config = sp.GetRequiredService<IConfigProvider>();
+            var time = sp.GetRequiredService<TimeProvider>();
+            return config.Current.Llm.UsesEndpoint
+                ? new ExternalLlamaServer(config, sp.GetRequiredService<ICredentialStore>(), time,
+                    sp.GetRequiredService<ILogger<ExternalLlamaServer>>())
+                : new LlamaServerManager(config, paths.RunDirectory, time, sp.GetRequiredService<ILogger<LlamaServerManager>>());
+        });
+        services.AddSingleton(sp => (ILlamaEndpoint)sp.GetRequiredService<ILlmRuntime>());
         services.AddSingleton<IMailClassifier>(sp => new LlamaClassifier(
-            sp.GetRequiredService<LlamaServerManager>(), sp.GetRequiredService<ILogger<LlamaClassifier>>()));
+            sp.GetRequiredService<ILlamaEndpoint>(), sp.GetRequiredService<ILogger<LlamaClassifier>>()));
 
         // 停止・再開（手動操作、ゲーム・全画面の検知）
         services.AddSingleton<ISystemSnapshotSource, WindowsSystemSnapshot>();
@@ -91,10 +95,11 @@ public static class AppHost
         // 設定画面（振り分け先の候補、接続テスト、試し判定、ログオン時の自動起動）
         services.AddSingleton<IMailFolderCatalog, MailFolderCatalog>();
         services.AddSingleton<IMailConnectionTester, ImapConnectionTester>();
+        services.AddSingleton<ILlmConnectionTester, LlmConnectionTester>();
         services.AddSingleton<IRejudgeService, RejudgeService>();
         services.AddSingleton<IAutoStartRegistrar>(_ => TaskSchedulerAutoStart.ForCurrentUser());
 
-        // 終了時は処理中の1通を最大2分待ち、そのあと llama-server を止める
+        // 終了時は処理中の1通を最大2分待ち、そのあと llama-server を止める（接続先 URL のサーバーは止めない）
         services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromMinutes(3));
 
         // 起動順: 状態 DB の初期化 → 設定ファイルの監視 → 定期処理 → 運転モード → AI → メールの監視と処理

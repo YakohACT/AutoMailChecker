@@ -185,9 +185,10 @@ public sealed class ConfigService : IConfigProvider, IHostedService, IDisposable
     private void OnFileEvent(object sender, FileSystemEventArgs e) =>
         _debounce.Change(DebounceDelay, Timeout.InfiniteTimeSpan);
 
-    /// <summary>アカウントと llm の serverExe・model・port・ctxSize は再起動で反映する（外部仕様タブ）。</summary>
+    /// <summary>アカウントと llm の endpoint・serverExe・model・port・ctxSize は再起動で反映する（外部仕様タブ）。</summary>
     private bool RequiresRestart(AppConfig config) =>
         JsonSerializer.Serialize(config.Accounts, ConfigJson.Options) != JsonSerializer.Serialize(_startup.Accounts, ConfigJson.Options)
+        || config.Llm.Endpoint != _startup.Llm.Endpoint
         || config.Llm.ServerExe != _startup.Llm.ServerExe
         || config.Llm.Model != _startup.Llm.Model
         || config.Llm.Port != _startup.Llm.Port

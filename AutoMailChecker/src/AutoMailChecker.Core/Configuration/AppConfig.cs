@@ -104,6 +104,16 @@ public sealed record HistoryConfig
 
 public sealed record LlmConfig
 {
+    /// <summary>
+    /// 起動済みの AI サーバー（llama-server など）の接続先 URL。この PC のアドレスだけ指定できる。
+    /// 空にすると、アプリが <see cref="ServerExe"/> と <see cref="Model"/> で llama-server を起動する。
+    /// </summary>
+    public string Endpoint { get; init; } = LlmEndpoint.DefaultUrl;
+
+    /// <summary>接続先 URL の起動済みサーバーを使うか（false ならアプリが llama-server を起動する）。</summary>
+    [JsonIgnore]
+    public bool UsesEndpoint => !string.IsNullOrWhiteSpace(Endpoint);
+
     public string ServerExe { get; init; } = "";
     public string Model { get; init; } = "";
     public int Port { get; init; } = 8089;

@@ -109,6 +109,24 @@ public sealed class LlmServiceTests
     }
 
     [Fact]
+    public async Task 接続先_URL_のサーバーに繋がらなければ_1分後にもう一度試す()
+    {
+        _runtime.IsExternal = true;
+        _runtime.StartFailure = new LlmStartException("http://127.0.0.1:8080 に繋がりません。");
+
+        var retryIn = await _service.ReconcileAsync(Ct);
+        Assert.Equal(LlmService.RetryAfterExternalFailure, retryIn);
+        Assert.Contains(_status.Current.Errors, e => e.Source == LlmService.StatusSource && e.Message.StartsWith("AI サーバーに接続できません", StringComparison.Ordinal));
+
+        // 利用者がサーバーを起動したら、すぐ使い始める
+        _runtime.StartFailure = null;
+        _time.Advance(TimeSpan.FromMinutes(1));
+        await _service.ReconcileAsync(Ct);
+        Assert.Equal(LlmProfile.Normal, _runtime.Running);
+        Assert.DoesNotContain(_status.Current.Errors, e => e.Source == LlmService.StatusSource);
+    }
+
+    [Fact]
     public async Task 読み込み中にゲームを起動したら_読み込みを打ち切る()
     {
         _runtime.Loading = ct => Task.Delay(Timeout.Infinite, ct);

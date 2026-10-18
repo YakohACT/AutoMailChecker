@@ -12,6 +12,9 @@ namespace AutoMailChecker.Tests.Llm;
 ///   AMC_LLAMA_SERVER  llama-server.exe の場所
 ///   AMC_LLAMA_MODEL   モデル（.gguf）の場所
 ///   AMC_LLAMA_NCPUMOE MoE モデルで専門家の重みを CPU に置く層の数（省略可）
+/// 起動済みのサーバーに繋ぐ方は、次を指定したときだけ動かす。
+///   AMC_LLAMA_URL     接続先 URL（例: http://127.0.0.1:8080）
+///   AMC_LLAMA_API_KEY サーバーを --api-key 付きで起動したときのキー（省略可）
 /// </summary>
 public sealed class RealLlamaServerTests : IDisposable
 {
@@ -58,6 +61,41 @@ public sealed class RealLlamaServerTests : IDisposable
         await server.StopAsync(ct);
         Assert.Null(server.Running);
         Assert.False(File.Exists(Path.Combine(runDirectory, "llama.key")));
+    }
+
+    [Fact]
+    public async Task 起動済みのサーバーに繋いで1通を判定できる()
+    {
+        var url = Environment.GetEnvironmentVariable("AMC_LLAMA_URL");
+        Assert.SkipWhen(string.IsNullOrEmpty(url), "環境変数 AMC_LLAMA_URL を指定したときだけ動かします。");
+
+        var ct = TestContext.Current.CancellationToken;
+        var config = DefaultConfig.Instance with { Llm = DefaultConfig.Instance.Llm with { Endpoint = url! } };
+        var credentials = new EnvironmentApiKey(Environment.GetEnvironmentVariable("AMC_LLAMA_API_KEY"));
+        using var server = new ExternalLlamaServer(new FixedConfig(config), credentials, TimeProvider.System,
+            NullLogger<ExternalLlamaServer>.Instance);
+        using var classifier = new LlamaClassifier(server, NullLogger<LlamaClassifier>.Instance);
+
+        await server.StartAsync(LlmProfile.Normal, ct);
+        Assert.Equal(LlmProfile.Normal, server.Running);
+
+        var stopwatch = Stopwatch.StartNew();
+        var judgement = await classifier.ClassifyAsync(ReservationMail(), config.Items, ct);
+        TestContext.Current.TestOutputHelper?.WriteLine(
+            $"モデル {server.ModelName} / 判定 {stopwatch.Elapsed.TotalSeconds:0.0} 秒 / 広告 {judgement.IsAdvertisement} / " +
+            $"該当 {string.Join(",", judgement.MatchedItems)} / 確信度 {judgement.Confidence} / 要約 {judgement.Summary} / 理由 {judgement.Reason}");
+
+        Assert.False(judgement.IsAdvertisement);
+        Assert.Contains(new ItemId("reservation"), judgement.MatchedItems);
+
+        await server.StopAsync(ct);
+        Assert.Null(server.Running);
+    }
+
+    private sealed class EnvironmentApiKey(string? apiKey) : ICredentialStore
+    {
+        public string? ReadSecret(string key) => key == LlmEndpoint.ApiKeyCredentialKey ? apiKey : null;
+        public void WriteSecret(string key, string userName, string secret) => throw new NotSupportedException();
     }
 
     private static MailSnapshot ReservationMail() => new(

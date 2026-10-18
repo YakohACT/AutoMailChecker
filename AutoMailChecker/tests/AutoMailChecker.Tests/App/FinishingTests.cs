@@ -3,6 +3,7 @@ using AutoMailChecker.Core;
 using AutoMailChecker.Core.Configuration;
 using AutoMailChecker.Core.State;
 using AutoMailChecker.Hosting;
+using AutoMailChecker.Llm;
 using AutoMailChecker.Persistence;
 using AutoMailChecker.Services;
 using AutoMailChecker.Windows.Startup;
@@ -137,5 +138,26 @@ public sealed class FinishingTests : IDisposable
         Assert.NotNull(services.GetRequiredService<ITrialService>());
         Assert.NotNull(services.GetRequiredService<IRunModeController>());
         Assert.NotNull(services.GetRequiredService<ICredentialStore>());
+        Assert.NotNull(services.GetRequiredService<ILlmConnectionTester>());
+
+        // 既定では接続先 URL の起動済みサーバーを使い、判定も同じ接続先に送る
+        var runtime = Assert.IsType<ExternalLlamaServer>(services.GetRequiredService<ILlmRuntime>());
+        Assert.Same(runtime, services.GetRequiredService<ILlamaEndpoint>());
+        Assert.Equal("http://127.0.0.1:8080/", runtime.BaseAddress.ToString());
+    }
+
+    [Fact]
+    public void 接続先_URL_が空ならアプリが_llama_server_を起動する()
+    {
+        var paths = new AppPaths(_temp.Combine("config"), _temp.Combine("data"));
+        paths.EnsureDirectories();
+        var config = DefaultConfig.Instance with { Llm = DefaultConfig.Instance.Llm with { Endpoint = "" } };
+        File.WriteAllText(paths.ConfigFile, ConfigJson.Serialize(config));
+
+        using var host = AppHost.Build(paths);
+
+        var runtime = Assert.IsType<LlamaServerManager>(host.Services.GetRequiredService<ILlmRuntime>());
+        Assert.False(runtime.IsExternal);
+        Assert.Same(runtime, host.Services.GetRequiredService<ILlamaEndpoint>());
     }
 }

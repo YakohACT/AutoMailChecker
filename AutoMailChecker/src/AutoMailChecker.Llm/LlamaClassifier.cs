@@ -7,16 +7,18 @@ using Microsoft.Extensions.Logging;
 
 namespace AutoMailChecker.Llm;
 
-/// <summary>llama-server の宛先と、起動ごとに作る API キー。止まっていれば ApiKey は null。</summary>
+/// <summary>判定の要求を送る先。止まっている、または準備中なら Connection は null。</summary>
 public interface ILlamaEndpoint
 {
-    Uri BaseAddress { get; }
-
-    string? ApiKey { get; }
+    LlamaConnection? Connection { get; }
 }
 
+/// <param name="BaseAddress">要求の基点（末尾に / が付く）</param>
+/// <param name="ApiKey">付けて送る API キー。要らなければ null</param>
+public sealed record LlamaConnection(Uri BaseAddress, string? ApiKey);
+
 /// <summary>
-/// IMailClassifier の llama-server 実装。指示文・メール・出力形式から要求を作って送り、結果を検証する（プロンプト設計タブ）。
+/// IMailClassifier の llama-server（OpenAI 互換）実装。指示文・メール・出力形式から要求を作って送り、結果を検証する（プロンプト設計タブ）。
 /// - temperature 0、最大出力 512 トークン、思考モードなし、出力は JSON スキーマで固定
 /// - 壊れた JSON、途中で切れた応答、時間切れ（300 秒）は1回だけ再試行し、だめなら判定失敗
 /// - 知らない項目 ID は捨て、重複はまとめ、長すぎる要約と理由は切り詰める
@@ -108,6 +110,10 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
         JsonSerializer.Serialize(new
         {
             temperature = 0,
+            // 起動済みのサーバーは起動引数で繰り返しの罰則などを既定にしていることがあるので、要求で打ち消す
+            repeat_penalty = 1.0,
+            presence_penalty = 0,
+            frequency_penalty = 0,
             max_tokens = MaxTokens,
             cache_prompt = true,
             // 思考モードを切る（起動引数の --reasoning off に加え、要求でも指定しておく）
@@ -126,15 +132,18 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
 
     private async Task<(string Content, string? FinishReason)> SendAsync(string body, CancellationToken ct)
     {
-        var apiKey = _endpoint.ApiKey ?? throw new LlmUnavailableException("llama-server が起動していません。");
+        var connection = _endpoint.Connection ?? throw new LlmUnavailableException("AI サーバーの準備ができていません。");
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(_requestTimeout);
-        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(_endpoint.BaseAddress, "v1/chat/completions"))
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(connection.BaseAddress, "v1/chat/completions"))
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        if (connection.ApiKey is { } apiKey)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
 
         string text;
         HttpStatusCode status;
@@ -150,17 +159,20 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
         }
         catch (HttpRequestException ex)
         {
-            throw new LlmUnavailableException($"llama-server に接続できません: {ex.Message}", ex);
+            throw new LlmUnavailableException($"AI サーバーに接続できません: {ex.Message}", ex);
         }
 
         switch (status)
         {
             case HttpStatusCode.ServiceUnavailable:
-                throw new LlmUnavailableException("llama-server はモデルの読み込み中です。");
-            case HttpStatusCode.Unauthorized:
-                throw new LlmUnavailableException("llama-server が API キーを受け付けませんでした（別の llama-server が同じポートで動いている可能性があります）。");
+                throw new LlmUnavailableException("AI サーバーはモデルの読み込み中です。");
+            case HttpStatusCode.NotFound:
+                // メールのせいではないので判定失敗にはしない
+                throw new LlmUnavailableException("AI サーバーに /v1/chat/completions がありません。接続先 URL を確かめてください。");
+            case HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden:
+                throw new LlmUnavailableException("AI サーバーが API キーを受け付けませんでした（API キーの登録か、同じポートで別のサーバーが動いていないかを確かめてください）。");
             case < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices:
-                throw new InvalidResponseException($"llama-server がエラーを返しました（HTTP {(int)status}）: {Shorten(text)}");
+                throw new InvalidResponseException($"AI サーバーがエラーを返しました（HTTP {(int)status}）: {Shorten(text)}");
         }
 
         try
@@ -175,7 +187,7 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
         {
-            throw new InvalidResponseException($"llama-server の応答の形が想定と違います: {ex.Message}");
+            throw new InvalidResponseException($"AI サーバーの応答の形が想定と違います: {ex.Message}");
         }
     }
 
@@ -256,7 +268,7 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
     private static string Shorten(string text) => text.Length <= 200 ? text : text[..200] + "…";
 
     private static HttpClient CreateHttpClient() =>
-        // 127.0.0.1 宛てなのでプロキシを通さない。時間切れは要求ごとに決める
+        // この PC 宛てなのでプロキシを通さない。時間切れは要求ごとに決める
         new(new SocketsHttpHandler { UseProxy = false }) { Timeout = Timeout.InfiniteTimeSpan };
 
     internal sealed record PreparedPrompt(

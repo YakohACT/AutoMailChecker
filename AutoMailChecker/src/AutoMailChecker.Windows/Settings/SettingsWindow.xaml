@@ -308,8 +308,16 @@
                         <Border Style="{StaticResource Panel}" Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="AI" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="モデルファイル（変更は再起動が必要。詳しい起動設定は設定ファイルで行います）" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
+                                <TextBlock Text="接続先 URL（起動済みの llama-server など。この PC のアドレスだけ。変更は再起動が必要）" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
                                 <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="接続テスト" Command="{Binding TestLlmCommand}" Margin="6,0,0,0" VerticalAlignment="Top" />
+                                    <Button DockPanel.Dock="Right" Content="API キーを登録…" Command="{Binding RegisterApiKeyCommand}" Margin="6,0,0,0" VerticalAlignment="Top" />
+                                    <TextBox Text="{Binding EndpointText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" />
+                                </DockPanel>
+                                <TextBlock Text="{Binding ApiKeyStatus}" Style="{StaticResource Hint}" />
+                                <TextBlock Text="{Binding LlmTestResult}" Style="{StaticResource Hint}" Margin="0,2,0,14" />
+                                <TextBlock Text="モデルファイル（接続先 URL を空にしたときだけ使い、アプリが llama-server を起動・終了します）" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
+                                <DockPanel IsEnabled="{Binding UsesModelFile}">
                                     <Button DockPanel.Dock="Right" Content="参照…" Command="{Binding BrowseModelCommand}" Margin="6,0,0,0" MinWidth="60" VerticalAlignment="Top" />
                                     <TextBox Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
                                 </DockPanel>

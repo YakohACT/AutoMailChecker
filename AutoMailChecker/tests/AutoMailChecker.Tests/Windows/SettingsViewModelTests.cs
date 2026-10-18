@@ -16,6 +16,7 @@ public sealed class SettingsViewModelTests : IDisposable
     private readonly FakeCatalog _catalog = new();
     private readonly MemoryCredentials _credentials = new();
     private readonly FakeAutoStart _autoStart = new();
+    private readonly FakeLlmTester _llmTester = new();
     private readonly SqliteStateStore _store;
 
     public SettingsViewModelTests()
@@ -186,6 +187,64 @@ public sealed class SettingsViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task AI_の接続先_URL_を保存し_ほかの_PC_は赤枠にする()
+    {
+        var viewModel = Create();
+        Assert.Equal("http://127.0.0.1:8080", viewModel.GeneralTab.EndpointText);
+        Assert.False(viewModel.GeneralTab.UsesModelFile);
+
+        viewModel.GeneralTab.EndpointText = "http://192.168.1.20:8080";
+        await SaveAsync(viewModel);
+        Assert.Null(_config.Saved);
+        Assert.True(viewModel.GeneralTab.GetErrors(nameof(GeneralTabViewModel.EndpointText)).Cast<string>().Any());
+        Assert.Contains(viewModel.Issues, i => i.StartsWith("AI の接続先 URL: ", StringComparison.Ordinal));
+
+        viewModel.GeneralTab.EndpointText = " http://localhost:8081 ";
+        await SaveAsync(viewModel, afterFailure: true);
+        Assert.Equal("http://localhost:8081", _config.Saved?.Llm.Endpoint);
+    }
+
+    [Fact]
+    public void 接続先_URL_を空にするとモデルファイルを使う()
+    {
+        var viewModel = Create();
+
+        viewModel.GeneralTab.EndpointText = "";
+
+        Assert.True(viewModel.GeneralTab.UsesModelFile);
+        Assert.False(viewModel.BuildConfig().Llm.UsesEndpoint);
+    }
+
+    [Fact]
+    public void API_キーは資格情報マネージャーにだけ登録する()
+    {
+        var viewModel = Create();
+        Assert.StartsWith("API キー: 未登録", viewModel.GeneralTab.ApiKeyStatus);
+        _dialogs.ApiKey = "sk-local-123";
+
+        viewModel.GeneralTab.RegisterApiKeyCommand.Execute(null);
+
+        Assert.Equal("sk-local-123", _credentials.Secrets[LlmEndpoint.ApiKeyCredentialKey]);
+        Assert.Equal("API キー: 登録済み", viewModel.GeneralTab.ApiKeyStatus);
+        Assert.DoesNotContain("sk-local", ConfigJson.Serialize(viewModel.BuildConfig()));
+    }
+
+    [Fact]
+    public async Task AI_の接続テストは保存前の_URL_で行い_結果を出す()
+    {
+        var viewModel = Create();
+
+        viewModel.GeneralTab.TestLlmCommand.Execute(null);
+        await WaitForAsync(() => viewModel.GeneralTab.LlmTestResult?.StartsWith("接続できました", StringComparison.Ordinal) == true);
+
+        viewModel.GeneralTab.EndpointText = "http://127.0.0.1:9999";
+        viewModel.GeneralTab.TestLlmCommand.Execute(null);
+        await WaitForAsync(() => viewModel.GeneralTab.LlmTestResult?.Contains("繋がりません", StringComparison.Ordinal) == true);
+
+        Assert.Equal(["http://127.0.0.1:8080", "http://127.0.0.1:9999"], _llmTester.Endpoints);
+    }
+
+    [Fact]
     public void 自動起動を切り替えるとすぐタスクスケジューラに登録_削除する()
     {
         var viewModel = Create();
@@ -225,13 +284,19 @@ public sealed class SettingsViewModelTests : IDisposable
 
     private SettingsViewModel Create(FakeRunModeController? runModes = null) => new(
         new SettingsServices(_config, _catalog, new FakeRejudge(), _store, runModes ?? new FakeRunModeController(),
-            new EmptySystem(), _credentials, new FakeTester(), _autoStart, _temp.Path),
+            new EmptySystem(), _credentials, new FakeTester(), _llmTester, _autoStart, _temp.Path),
         _dialogs, SettingsTab.Items);
 
-    private static async Task SaveAsync(SettingsViewModel viewModel)
+    /// <param name="afterFailure">前回の保存が誤りで止まっていたら true（今度は保存できるまで待つ）</param>
+    private static async Task SaveAsync(SettingsViewModel viewModel, bool afterFailure = false)
     {
         viewModel.SaveCommand.Execute(null);
-        for (var i = 0; i < 100 && viewModel.StatusText is null; i++)
+        await WaitForAsync(() => afterFailure ? !viewModel.StatusIsError : viewModel.StatusText is not null);
+    }
+
+    private static async Task WaitForAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 100 && !condition(); i++)
         {
             await Task.Delay(10, TestContext.Current.CancellationToken);
         }
@@ -244,6 +309,8 @@ public sealed class SettingsViewModelTests : IDisposable
 
         public bool Confirm(string message) => ConfirmResult;
         public string? AskPassword(string accountId, string user) => Password;
+        public string? ApiKey { get; set; }
+        public string? AskApiKey() => ApiKey;
         public string? PickExecutable() => null;
         public string? PickFolder(string? initialFolder) => null;
         public string? PickModelFile(string? current) => null;
@@ -280,6 +347,19 @@ public sealed class SettingsViewModelTests : IDisposable
     private sealed class FakeTester : IMailConnectionTester
     {
         public Task<string> TestAsync(AccountConfig account, CancellationToken ct) => Task.FromResult("接続できました。");
+    }
+
+    private sealed class FakeLlmTester : ILlmConnectionTester
+    {
+        public List<string> Endpoints { get; } = [];
+
+        public Task<string> TestAsync(string endpoint, CancellationToken ct)
+        {
+            Endpoints.Add(endpoint);
+            return endpoint.Contains("8080", StringComparison.Ordinal)
+                ? Task.FromResult("接続できました（モデル: test-model）。")
+                : throw new LlmStartException("http://127.0.0.1:9999 に繋がりません。");
+        }
     }
 
     private sealed class FakeRejudge : IRejudgeService
