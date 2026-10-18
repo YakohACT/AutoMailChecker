@@ -130,9 +130,9 @@ public sealed class ItemsTabViewModel : ObservableObject
     private readonly ISettingsDialogs _dialogs;
     private readonly Func<AppConfig> _draft;
     private readonly Dictionary<string, IReadOnlyList<string>> _serverFolders = [];
+    private readonly IReadOnlyDictionary<string, string> _adFolders;
     private List<string> _accountIds;
     private ItemEditViewModel? _selectedItem;
-    private bool _advertisementMove;
     private string _folderStatus = "";
 
     public ItemsTabViewModel(
@@ -151,11 +151,8 @@ public sealed class ItemsTabViewModel : ObservableObject
             AddItem(new ItemEditViewModel(item, _accountIds));
         }
 
-        _advertisementMove = config.Advertisement.Mode == AdvertisementMode.Move;
-        foreach (var accountId in _accountIds)
-        {
-            AddAdFolder(new FolderChoice(accountId, config.Advertisement.FolderFor(accountId)));
-        }
+        // 広告の扱いは画面で変えない（設定ファイルの advertisement のまま）。広告を移動する設定なら、その振り分け先は候補から外す
+        _adFolders = config.Advertisement.Mode == AdvertisementMode.Move ? config.Advertisement.Folders : new Dictionary<string, string>();
 
         Renumber();
         SelectedItem = Items.FirstOrDefault();
@@ -169,7 +166,6 @@ public sealed class ItemsTabViewModel : ObservableObject
     }
 
     public ObservableCollection<ItemEditViewModel> Items { get; } = [];
-    public ObservableCollection<FolderChoice> AdFolders { get; } = [];
 
     public ICommand AddCommand { get; }
     public ICommand DeleteCommand { get; }
@@ -191,21 +187,6 @@ public sealed class ItemsTabViewModel : ObservableObject
     }
 
     public bool HasSelection => SelectedItem is not null;
-
-    /// <summary>広告の扱い。false なら「無視」（受信トレイに残す）、true なら「振り分け」。</summary>
-    public bool AdvertisementMove
-    {
-        get => _advertisementMove;
-        set
-        {
-            if (SetProperty(ref _advertisementMove, value))
-            {
-                OnPropertyChanged(nameof(AdvertisementIgnore));
-            }
-        }
-    }
-
-    public bool AdvertisementIgnore { get => !AdvertisementMove; set => AdvertisementMove = !value; }
 
     /// <summary>フォルダー一覧の取得状況（例:「icloud: 取得できません（パスワードが登録されていません）」）。</summary>
     public string FolderStatus { get => _folderStatus; private set => SetProperty(ref _folderStatus, value); }
@@ -243,8 +224,7 @@ public sealed class ItemsTabViewModel : ObservableObject
             Sync(item.Folders, accountIds, accountId => new FolderChoice(accountId, null));
         }
 
-        Sync(AdFolders, accountIds, accountId => new FolderChoice(accountId, null));
-        foreach (var choice in Items.SelectMany(i => i.Folders).Concat(AdFolders))
+        foreach (var choice in Items.SelectMany(i => i.Folders))
         {
             choice.FolderChanged -= OnFolderChanged;
             choice.FolderChanged += OnFolderChanged;
@@ -270,16 +250,10 @@ public sealed class ItemsTabViewModel : ObservableObject
 
     public IReadOnlyList<ItemDefinition> BuildItems() => Items.Select(i => i.ToDefinition()).ToList();
 
-    public AdvertisementConfig BuildAdvertisement() => new()
-    {
-        Mode = AdvertisementMove ? AdvertisementMode.Move : AdvertisementMode.Ignore,
-        Folders = AdFolders.Where(f => f.Value is not null).ToDictionary(f => f.AccountId, f => f.Value!),
-    };
-
     /// <summary>サーバーに見つからない振り分け先（保存はできるが、その振り分け先への移動は止まる）。</summary>
     public IEnumerable<string> FolderWarnings()
     {
-        foreach (var choice in Items.SelectMany(i => i.Folders).Concat(AdvertisementMove ? AdFolders : []))
+        foreach (var choice in Items.SelectMany(i => i.Folders))
         {
             if (choice.Value is { } folder && _serverFolders.TryGetValue(choice.AccountId, out var known) && !known.Contains(folder))
             {
@@ -297,11 +271,6 @@ public sealed class ItemsTabViewModel : ObservableObject
             {
                 folder.ClearErrors();
             }
-        }
-
-        foreach (var folder in AdFolders)
-        {
-            folder.ClearErrors();
         }
     }
 
@@ -359,18 +328,12 @@ public sealed class ItemsTabViewModel : ObservableObject
         }
     }
 
-    private void AddAdFolder(FolderChoice choice)
-    {
-        AdFolders.Add(choice);
-        choice.FolderChanged += OnFolderChanged;
-    }
-
     private void OnFolderChanged(object? sender, EventArgs e) => RecomputeSuggestions();
 
     /// <summary>候補は、そのアカウントのフォルダーから、ほかの項目や広告で使用中のものを除いたもの。</summary>
     private void RecomputeSuggestions()
     {
-        var all = Items.SelectMany(i => i.Folders).Concat(AdFolders).ToList();
+        var all = Items.SelectMany(i => i.Folders).ToList();
         foreach (var choice in all)
         {
             var server = _serverFolders.GetValueOrDefault(choice.AccountId) ?? [];
@@ -378,6 +341,10 @@ public sealed class ItemsTabViewModel : ObservableObject
                 .Where(c => !ReferenceEquals(c, choice) && c.AccountId == choice.AccountId && c.Value is not null)
                 .Select(c => c.Value!)
                 .ToHashSet(StringComparer.Ordinal);
+            if (_adFolders.GetValueOrDefault(choice.AccountId) is { Length: > 0 } adFolder)
+            {
+                usedByOthers.Add(adFolder.Trim());
+            }
             choice.SetSuggestions(server.Where(f => !usedByOthers.Contains(f)).ToList());
         }
     }

@@ -185,7 +185,7 @@ public static partial class ConfigValidator
         }
     }
 
-    /// <summary>同じアカウントの中で、振り分け先フォルダー（広告用を含む）が項目間で重複しないこと。</summary>
+    /// <summary>同じアカウントの中で、振り分け先フォルダー（広告を移動するなら広告用も）が項目間で重複しないこと。</summary>
     private static void ValidateFolderConflicts(AppConfig config, List<ConfigIssue> issues)
     {
         // アカウント ID → (フォルダー名 → 最初に使った場所)
@@ -223,7 +223,10 @@ public static partial class ConfigValidator
             Check(ConfigSection.Items, $"items[{i}].folders", $"項目「{item.Label}」", item.Folders);
         }
 
-        Check(ConfigSection.Advertisement, "advertisement.folders", "広告", config.Advertisement.Folders);
+        if (config.Advertisement.Mode == AdvertisementMode.Move)
+        {
+            Check(ConfigSection.Advertisement, "advertisement.folders", "広告", config.Advertisement.Folders);
+        }
     }
 
     private static void ValidatePolicy(PolicyConfig policy, List<ConfigIssue> issues)

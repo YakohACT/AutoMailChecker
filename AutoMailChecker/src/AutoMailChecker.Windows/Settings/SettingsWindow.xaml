@@ -129,18 +129,6 @@
                                 <ItemsControl ItemsSource="{Binding Folders}" ItemTemplate="{StaticResource FolderChoiceTemplate}" />
                             </StackPanel>
 
-                            <Border Style="{StaticResource Panel}" Margin="0,8,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="広告の扱い" Style="{StaticResource SectionTitle}" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                        <RadioButton Content="無視（受信トレイに残す）" IsChecked="{Binding AdvertisementIgnore}" GroupName="Ad" Margin="0,0,24,0" />
-                                        <RadioButton Content="振り分け（広告用フォルダーへ移動）" IsChecked="{Binding AdvertisementMove}" GroupName="Ad" />
-                                    </StackPanel>
-                                    <ItemsControl ItemsSource="{Binding AdFolders}" ItemTemplate="{StaticResource FolderChoiceTemplate}"
-                                                  IsEnabled="{Binding AdvertisementMove}" />
-                                </StackPanel>
-                            </Border>
-
                             <DockPanel Margin="0,12,0,0">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
                                     <Button Content="一覧を更新" Command="{Binding RefreshFoldersCommand}" ToolTip="各アカウントのフォルダー一覧を取り直します" />

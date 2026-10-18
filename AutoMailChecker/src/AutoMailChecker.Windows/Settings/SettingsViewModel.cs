@@ -91,7 +91,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             Accounts = GeneralTab.BuildAccounts(),
             Items = ItemsTab.BuildItems(),
-            Advertisement = ItemsTab.BuildAdvertisement(),
+            // 広告の扱いは画面で変えない。削除したアカウントの広告用フォルダーだけ外す
+            Advertisement = current.Advertisement with
+            {
+                Folders = current.Advertisement.Folders
+                    .Where(f => GeneralTab.Accounts.Any(a => a.Id.Trim() == f.Key))
+                    .ToDictionary(f => f.Key, f => f.Value),
+            },
             Policy = current.Policy with
             {
                 AutoSort = GeneralTab.AutoSort,
@@ -210,8 +216,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (path.StartsWith("advertisement.folders.", StringComparison.Ordinal))
         {
             var accountId = path["advertisement.folders.".Length..];
-            ItemsTab.AdFolders.FirstOrDefault(f => f.AccountId == accountId)?.AddError(nameof(FolderChoice.Folder), message);
-            return $"広告用フォルダー（{accountId}）: {message}";
+            return $"広告用フォルダー（{accountId}）: {message}（設定ファイルの advertisement で直してください）";
         }
 
         switch (path)
