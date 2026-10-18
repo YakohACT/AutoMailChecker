@@ -51,7 +51,6 @@ public sealed class HistoryViewModel : ObservableObject
             new("移動済み", HistoryCategory.Moved),
             new("移動予定", HistoryCategory.Planned),
             new("受信トレイに残した", HistoryCategory.Kept),
-            new("広告", HistoryCategory.Advertisement),
             new("失敗", HistoryCategory.Failed),
             new("戻した", HistoryCategory.Undone),
         ];
@@ -60,7 +59,6 @@ public sealed class HistoryViewModel : ObservableObject
         [
             .. settings.Items.OrderBy(i => i.Priority).Select(i => new Choice<string?>(i.Label, i.Id.Value)),
             new("どの項目でもない", null),
-            new("広告", ItemId.AdvertisementReserved),
         ];
 
         _selectedAccount = AccountChoices[0];

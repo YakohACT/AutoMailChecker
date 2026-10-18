@@ -14,7 +14,7 @@ namespace AutoMailChecker.Llm;
 public sealed class PromptBuilder
 {
     /// <summary>雛形の版。判定履歴に残す。項目の説明や例の変更は設定の変更として扱い、版は上げない。</summary>
-    public const string PromptVersion = "p1";
+    public const string PromptVersion = "p2"; // p2: 広告かどうかの判定をやめた
 
     private const int NonceDigits = 16;
     private static readonly TimeSpan JapanOffset = TimeSpan.FromHours(9);
@@ -74,10 +74,6 @@ public sealed class PromptBuilder
 
         lines.AddRange(
         [
-            "# 広告かどうか",
-            "- 広告: セール・キャンペーン・新商品の案内、メルマガ、クーポン配布など、受信者自身の取引や手続きに直接関係しない販促",
-            "- 広告ではない: 受信者自身の注文・予約・決済・アカウントに関する通知。販促文が併記されていても、取引の通知なら広告ではない",
-            "",
             "# 出力のルール",
             "- matched_items には当てはまる項目のIDをすべて入れる。確信のない項目は入れない。どれにも当てはまらなければ空にする",
             "- 項目どうしの優先順位は考えなくてよい",

@@ -10,7 +10,7 @@ namespace AutoMailChecker.Llm;
 public static class SchemaBuilder
 {
     public static readonly IReadOnlyList<string> RequiredProperties =
-        ["is_advertisement", "matched_items", "confidence", "summary", "reason"];
+        ["matched_items", "confidence", "summary", "reason"];
 
     public static JsonObject Build(IReadOnlyList<ItemDefinition> items)
     {
@@ -38,7 +38,6 @@ public static class SchemaBuilder
             ["type"] = "object",
             ["properties"] = new JsonObject
             {
-                ["is_advertisement"] = new JsonObject { ["type"] = "boolean" },
                 ["matched_items"] = matchedItems,
                 ["confidence"] = new JsonObject { ["enum"] = new JsonArray("high", "medium", "low") },
                 ["summary"] = new JsonObject { ["type"] = "string" },

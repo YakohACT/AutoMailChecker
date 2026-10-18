@@ -32,7 +32,6 @@ public static class ConfidenceExtensions
 
 /// <summary>AI が1通について返す結果。移動先やフォルダー名は含まない。</summary>
 public sealed record Judgement(
-    bool IsAdvertisement,
     IReadOnlyList<ItemId> MatchedItems,
     Confidence Confidence,
     string Summary,

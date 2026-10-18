@@ -2,14 +2,11 @@ namespace AutoMailChecker.Core.State;
 
 /// <summary>お試し仕分けの1回分の結果（画面設計 SC-06「完了」）。</summary>
 /// <param name="ItemCounts">項目ごとの移動（予定）件数。優先度順</param>
-/// <param name="AdvertisementFolder">広告用フォルダーへの移動（予定）件数</param>
 /// <param name="Accuracy">誤判定が1件以上記録されていれば出す</param>
 public sealed record TrialReport(
     TrialRun Run,
     IReadOnlyList<TrialItemCount> ItemCounts,
-    int AdvertisementFolder,
     int LowConfidence,
-    int Advertisement,
     int NoMatch,
     int Failed,
     int Moved,
@@ -42,9 +39,7 @@ public static class TrialReportBuilder
         return new TrialReport(
             run,
             itemCounts,
-            AdvertisementFolder: judgements.Count(j => Predicted(j) == ItemId.AdvertisementReserved),
             LowConfidence: judgements.Count(j => j.Outcome == Outcome.KeptLowConfidence),
-            Advertisement: judgements.Count(j => j.IsAdvertisement),
             NoMatch: judgements.Count(j => j.Outcome == Outcome.KeptNoMatch),
             Failed: judgements.Count(j => j.Outcome == Outcome.Failed),
             Moved: judgements.Count(j => j.Outcome is Outcome.Moved or Outcome.MovedAd && j.Move?.UndoneAt is null),
@@ -74,7 +69,7 @@ public static class TrialReportBuilder
             judgements.Count(j => j.IsCorrected));
     }
 
-    /// <summary>AI の判定から決まった振り分け先。項目なら項目 ID、広告用フォルダーなら「ad」、移動しないなら null。</summary>
+    /// <summary>AI の判定から決まった振り分け先。項目なら項目 ID、移動しないなら null（以前の版で広告用フォルダーへ移したものは「ad」）。</summary>
     public static string? Predicted(JudgementRecord judgement) =>
         judgement.TargetItemId
         ?? (judgement.TargetFolder is not null && judgement.IsAdvertisement ? ItemId.AdvertisementReserved : null);

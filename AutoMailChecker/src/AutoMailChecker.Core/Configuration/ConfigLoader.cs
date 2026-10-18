@@ -36,7 +36,7 @@ public static class ConfigLoader
 
         var merged = ReplaceSections(parsed, fallback, issues.Select(i => i.Section).ToHashSet());
 
-        // 区分をまたぐ誤り（項目の振り分け先と広告用の重複など）が残るときは、前の設定をそのまま使う
+        // 区分をまたぐ誤り（項目の振り分け先に存在しないアカウントを書いた、など）が残るときは、前の設定をそのまま使う
         if (ConfigValidator.Validate(merged).Count > 0)
         {
             merged = fallback;
@@ -57,7 +57,6 @@ public static class ConfigLoader
             Accounts = sections.Contains(ConfigSection.Accounts) ? fallback.Accounts : config.Accounts,
             IgnoreSenders = sections.Contains(ConfigSection.IgnoreSenders) ? fallback.IgnoreSenders : config.IgnoreSenders,
             Items = sections.Contains(ConfigSection.Items) ? fallback.Items : config.Items,
-            Advertisement = sections.Contains(ConfigSection.Advertisement) ? fallback.Advertisement : config.Advertisement,
             Policy = sections.Contains(ConfigSection.Policy) ? fallback.Policy : config.Policy,
             Trial = sections.Contains(ConfigSection.Trial) ? fallback.Trial : config.Trial,
             History = sections.Contains(ConfigSection.History) ? fallback.History : config.History,

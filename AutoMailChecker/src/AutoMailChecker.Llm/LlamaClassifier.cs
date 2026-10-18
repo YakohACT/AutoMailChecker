@@ -212,13 +212,6 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
                 throw new InvalidResponseException("JSON のオブジェクトではありません。");
             }
 
-            var isAdvertisement = Required(root, "is_advertisement").ValueKind switch
-            {
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                _ => throw new InvalidResponseException("is_advertisement が真偽値ではありません。"),
-            };
-
             var matched = new List<ItemId>();
             var itemsElement = Required(root, "matched_items");
             if (itemsElement.ValueKind != JsonValueKind.Array)
@@ -252,7 +245,7 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
             var reason = Required(root, "reason").GetStringOrNull()
                 ?? throw new InvalidResponseException("reason が文字列ではありません。");
 
-            return new Judgement(isAdvertisement, matched, confidence,
+            return new Judgement(matched, confidence,
                 Truncate(summary.Trim(), SummaryMaxLength), Truncate(reason.Trim(), ReasonMaxLength));
         }
     }

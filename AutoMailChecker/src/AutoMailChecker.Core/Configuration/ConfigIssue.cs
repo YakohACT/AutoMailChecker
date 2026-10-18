@@ -8,7 +8,6 @@ public enum ConfigSection
     Accounts,
     IgnoreSenders,
     Items,
-    Advertisement,
     Policy,
     Trial,
     History,

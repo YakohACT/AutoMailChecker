@@ -99,7 +99,7 @@ public interface IJudgementRepository
     /// </summary>
     Task MarkUndoneAsync(long moveRecordId, UndoResult result, CancellationToken ct);
 
-    /// <summary>誤判定を記録し、その判定を保持期間後も残す。correctItemId が null なら「どの項目でもない」、「ad」は広告。</summary>
+    /// <summary>誤判定を記録し、その判定を保持期間後も残す。correctItemId が null なら「どの項目でもない」。</summary>
     Task AddCorrectionAsync(long judgementId, string? correctItemId, CorrectionSource source, CancellationToken ct);
 }
 

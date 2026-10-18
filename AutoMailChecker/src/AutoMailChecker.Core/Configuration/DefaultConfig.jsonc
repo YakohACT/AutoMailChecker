@@ -1,6 +1,6 @@
 {
   // AutoMailChecker の設定ファイル。初回起動時にこの内容で作られる。
-  // 項目と広告の扱いは設定画面からも編集できる（画面から保存するとコメントは残らない。保存前の内容は config.jsonc.bak に退避される）。
+  // 項目は設定画面からも編集できる（画面から保存するとコメントは残らない。保存前の内容は config.jsonc.bak に退避される）。
   // アカウント追加とモデル変更だけは再起動が必要。それ以外は保存した時点で反映される。
 
   // iCloud 1つ、Gmail 3つ。idは自由に付けてよい（項目のfoldersのキーになる）
@@ -54,12 +54,6 @@
       "counterExamples": ["銀行からの給与入金通知"],
       "folders": { "icloud": "給与明細", "gmail1": "AI/給与明細", "gmail2": "AI/給与明細", "gmail3": "AI/給与明細" } }
   ],
-
-  // 広告の扱い。"ignore"（受信トレイに残す）または "move"（広告用フォルダーへ）
-  "advertisement": {
-    "mode": "ignore",
-    "folders": { "icloud": "広告", "gmail1": "AI/広告", "gmail2": "AI/広告", "gmail3": "AI/広告" }
-  },
 
   "policy": {
     "errorPopup": false,                 // エラー時もポップアップは出さず、トレイアイコンで示す

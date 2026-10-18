@@ -49,6 +49,7 @@ public sealed record JudgementRecord
     /// <summary>先頭 200 文字だけ保存する。</summary>
     public string? Subject { get; init; }
 
+    /// <summary>以前の版で広告と判定された。いまは広告かどうかを判定しないので、新しい記録では常に false。</summary>
     public bool IsAdvertisement { get; init; }
 
     /// <summary>判定失敗時は null。</summary>
@@ -76,7 +77,7 @@ public sealed record JudgementRecord
     /// <summary>誤判定が記録されているか。読み出したときだけ入る。</summary>
     public bool IsCorrected { get; init; }
 
-    /// <summary>最後に記録された本来の項目 ID。IsCorrected が true で null なら「どの項目でもない」、「ad」は広告。</summary>
+    /// <summary>最後に記録された本来の項目 ID。IsCorrected が true で null なら「どの項目でもない」、「ad」は広告（以前の版の記録）。</summary>
     public string? CorrectItemId { get; init; }
 }
 
@@ -90,8 +91,6 @@ public enum HistoryCategory
     Planned,
     /// <summary>受信トレイに残した</summary>
     Kept,
-    /// <summary>広告と判定された</summary>
-    Advertisement,
     Failed,
     /// <summary>受信トレイに戻した</summary>
     Undone,

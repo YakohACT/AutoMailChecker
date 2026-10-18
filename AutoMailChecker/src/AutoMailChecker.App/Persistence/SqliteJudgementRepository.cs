@@ -209,7 +209,6 @@ internal sealed class SqliteJudgementRepository(SqliteDb db) : IJudgementReposit
             HistoryCategory.Moved => MovedNotUndone,
             HistoryCategory.Planned => "j.outcome = 'planned'",
             HistoryCategory.Kept => "NOT (j.outcome IN ('moved', 'moved_ad', 'planned', 'failed'))",
-            HistoryCategory.Advertisement => "j.is_advertisement = 1",
             HistoryCategory.Failed => "j.outcome = 'failed'",
             HistoryCategory.Undone => "m.undone_at IS NOT NULL",
             _ => null,

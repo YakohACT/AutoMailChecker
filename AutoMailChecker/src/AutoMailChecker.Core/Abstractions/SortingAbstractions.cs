@@ -29,7 +29,7 @@ public interface ITrialService
     /// <summary>その回に実際に移動したメールを、まとめて受信トレイへ戻す。</summary>
     Task<RollbackSummary> RollbackAsync(long trialRunId, CancellationToken ct);
 
-    /// <summary>項目ごとの件数、確信度「低」・広告・失敗の件数と、誤判定の記録から出した精度。</summary>
+    /// <summary>項目ごとの件数、確信度「低」・該当なし・失敗の件数と、誤判定の記録から出した精度。</summary>
     Task<TrialReport> GetReportAsync(long trialRunId, CancellationToken ct);
 }
 

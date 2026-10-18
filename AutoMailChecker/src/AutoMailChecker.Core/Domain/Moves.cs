@@ -5,11 +5,11 @@ public enum Outcome
 {
     /// <summary>項目のフォルダーへ移動した</summary>
     Moved,
-    /// <summary>広告用フォルダーへ移動した</summary>
+    /// <summary>広告用フォルダーへ移動した（以前の版の記録だけ。いまは広告かどうかを判定しない）</summary>
     MovedAd,
     /// <summary>お試し（結果の表示のみ）または移動不可のアカウントで、移動予定先だけ決めた</summary>
     Planned,
-    /// <summary>広告なので受信トレイに残した</summary>
+    /// <summary>広告なので受信トレイに残した（以前の版の記録だけ。いまは広告かどうかを判定しない）</summary>
     KeptAd,
     /// <summary>確信度がしきい値未満なので残した</summary>
     KeptLowConfidence,
@@ -65,13 +65,11 @@ public abstract record MoveTarget(string Folder);
 
 public sealed record ItemTarget(ItemId Item, string Folder) : MoveTarget(Folder);
 
-public sealed record AdvertisementTarget(string Folder) : MoveTarget(Folder);
-
 /// <summary>ActionPolicy の結果。Target が null なら移動しない。</summary>
 public sealed record MoveDecision(MoveTarget? Target, Outcome Outcome)
 {
     /// <summary>実際に IMAP で移動するか。Planned は移動予定先を残すだけで移動しない。</summary>
-    public bool ShouldMove => Target is not null && (Outcome is Outcome.Moved or Outcome.MovedAd);
+    public bool ShouldMove => Target is not null && Outcome == Outcome.Moved;
 }
 
 /// <summary>

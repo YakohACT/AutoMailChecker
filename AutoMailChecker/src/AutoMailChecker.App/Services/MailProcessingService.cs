@@ -178,7 +178,7 @@ public sealed class MailProcessingService(
 
             var duration = time.GetElapsedTime(startedAt);
 
-            // 4. 振り分け先を決める（確信度 → 広告 → 優先度）。移動しないときは移動予定先だけを記録する
+            // 4. 振り分け先を決める（確信度 → 優先度）。移動しないときは移動予定先だけを記録する
             var trial = await GetTrialRunAsync(item.TrialRunId, ct).ConfigureAwait(false);
             var context = PolicyContext.From(settings, mail.AccountId,
                 previewOnly: !MoveEnabled(item, trial, settings), MissingFolders(settings, mail.AccountId));
@@ -235,12 +235,19 @@ public sealed class MailProcessingService(
     private async Task MoveAndRecordAsync(QueueItem item, IItemFolderMover mover, PendingMove pending, CancellationToken ct)
     {
         var record = pending.Record;
+        if (pending.ItemId is not { } itemId)
+        {
+            // 以前の版で広告用フォルダーへ移そうとしていた控え。いまは広告を移動しないので、受信トレイに残す
+            await store.Judgements.RecordAsync(
+                record with { Outcome = Outcome.KeptAd, TargetItemId = null, TargetFolder = null },
+                move: null, completed: item, ct).ConfigureAwait(false);
+            return;
+        }
+
         MovedMailRef moved;
         try
         {
-            moved = pending.ItemId is { } itemId
-                ? await mover.MoveToItemFolderAsync(item.Mail, new ItemId(itemId), ct).ConfigureAwait(false)
-                : await mover.MoveToAdvertisementFolderAsync(item.Mail, ct).ConfigureAwait(false);
+            moved = await mover.MoveToItemFolderAsync(item.Mail, new ItemId(itemId), ct).ConfigureAwait(false);
         }
         catch (MailFolderNotFoundException ex)
         {
@@ -401,7 +408,6 @@ public sealed class MailProcessingService(
 
         return NewRecord(item, header, duration) with
         {
-            IsAdvertisement = judgement.IsAdvertisement,
             Confidence = judgement.Confidence,
             Summary = judgement.Summary,
             Reason = judgement.Reason,

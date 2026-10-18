@@ -187,8 +187,7 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
         : "";
 
     public string ReportCountsText => Report is { } r
-        ? $"対象 {r.Run.Total} 件　・　確信度「低」 {r.LowConfidence} 件　・　広告 {r.Advertisement} 件　・　該当なし {r.NoMatch} 件　・　失敗 {r.Failed} 件"
-          + (r.AdvertisementFolder > 0 ? $"　・　広告用フォルダー {r.AdvertisementFolder} 件" : "")
+        ? $"対象 {r.Run.Total} 件　・　確信度「低」 {r.LowConfidence} 件　・　該当なし {r.NoMatch} 件　・　失敗 {r.Failed} 件"
         : "";
 
     public string AccuracyText => Report?.Accuracy is { } a

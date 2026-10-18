@@ -8,7 +8,7 @@ using AutoMailChecker.Windows.Ui;
 
 namespace AutoMailChecker.Windows.Settings;
 
-/// <summary>1アカウント分の振り分け先。候補はそのアカウントのフォルダーだけで、ほかの項目や広告で使用中のものは出さない。</summary>
+/// <summary>1アカウント分の振り分け先。候補はそのアカウントのフォルダーだけで、ほかの項目で使用中のものは出さない。</summary>
 public sealed class FolderChoice(string accountId, string? folder) : EditableObject
 {
     private string _folder = folder ?? "";
@@ -130,7 +130,6 @@ public sealed class ItemsTabViewModel : ObservableObject
     private readonly ISettingsDialogs _dialogs;
     private readonly Func<AppConfig> _draft;
     private readonly Dictionary<string, IReadOnlyList<string>> _serverFolders = [];
-    private readonly IReadOnlyDictionary<string, string> _adFolders;
     private List<string> _accountIds;
     private ItemEditViewModel? _selectedItem;
     private string _folderStatus = "";
@@ -150,9 +149,6 @@ public sealed class ItemsTabViewModel : ObservableObject
         {
             AddItem(new ItemEditViewModel(item, _accountIds));
         }
-
-        // 広告の扱いは画面で変えない（設定ファイルの advertisement のまま）。広告を移動する設定なら、その振り分け先は候補から外す
-        _adFolders = config.Advertisement.Mode == AdvertisementMode.Move ? config.Advertisement.Folders : new Dictionary<string, string>();
 
         Renumber();
         SelectedItem = Items.FirstOrDefault();
@@ -330,7 +326,7 @@ public sealed class ItemsTabViewModel : ObservableObject
 
     private void OnFolderChanged(object? sender, EventArgs e) => RecomputeSuggestions();
 
-    /// <summary>候補は、そのアカウントのフォルダーから、ほかの項目や広告で使用中のものを除いたもの。</summary>
+    /// <summary>候補は、そのアカウントのフォルダーから、ほかの項目で使用中のものを除いたもの。</summary>
     private void RecomputeSuggestions()
     {
         var all = Items.SelectMany(i => i.Folders).ToList();
@@ -341,10 +337,6 @@ public sealed class ItemsTabViewModel : ObservableObject
                 .Where(c => !ReferenceEquals(c, choice) && c.AccountId == choice.AccountId && c.Value is not null)
                 .Select(c => c.Value!)
                 .ToHashSet(StringComparer.Ordinal);
-            if (_adFolders.GetValueOrDefault(choice.AccountId) is { Length: > 0 } adFolder)
-            {
-                usedByOthers.Add(adFolder.Trim());
-            }
             choice.SetSuggestions(server.Where(f => !usedByOthers.Contains(f)).ToList());
         }
     }

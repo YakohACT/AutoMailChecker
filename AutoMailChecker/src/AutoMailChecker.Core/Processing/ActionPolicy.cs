@@ -9,7 +9,6 @@ namespace AutoMailChecker.Core;
 public sealed record PolicyContext(
     string AccountId,
     IReadOnlyList<ItemDefinition> Items,
-    AdvertisementConfig Advertisement,
     Confidence MinConfidence,
     bool MoveAllowed,
     IReadOnlySet<string>? UnavailableFolders = null)
@@ -19,7 +18,7 @@ public sealed record PolicyContext(
     {
         var allowMove = config.FindAccount(accountId)?.AllowMove ?? false;
         return new PolicyContext(
-            accountId, config.Items, config.Advertisement, config.Policy.MinConfidence,
+            accountId, config.Items, config.Policy.MinConfidence,
             MoveAllowed: allowMove && !previewOnly, unavailableFolders);
     }
 
@@ -27,7 +26,7 @@ public sealed record PolicyContext(
 }
 
 /// <summary>
-/// AI の判定から移動先を決める。確信度 → 広告 → 優先度の順に見る。入出力はしない。
+/// AI の判定から移動先を決める。確信度 → 優先度の順に見る。入出力はしない。
 /// AI が返すのは項目 ID だけで、フォルダーと優先度はここで設定から決める。
 /// </summary>
 public sealed class ActionPolicy
@@ -42,27 +41,13 @@ public sealed class ActionPolicy
 
     private static MoveDecision DecideTarget(Judgement judgement, PolicyContext context)
     {
-        // 1. 確信度がしきい値未満なら、広告かどうかや該当項目に関係なく残す
+        // 1. 確信度がしきい値未満なら、該当項目に関係なく残す
         if (!judgement.Confidence.IsAtLeast(context.MinConfidence))
         {
             return new MoveDecision(null, Outcome.KeptLowConfidence);
         }
 
-        // 2. 広告は該当項目より先に見る。項目に当てはまっていても項目のフォルダーには入れない
-        if (judgement.IsAdvertisement)
-        {
-            if (context.Advertisement.Mode != AdvertisementMode.Move)
-            {
-                return new MoveDecision(null, Outcome.KeptAd);
-            }
-
-            var adFolder = context.Advertisement.FolderFor(context.AccountId);
-            return adFolder is not null && context.IsUsable(adFolder)
-                ? new MoveDecision(new AdvertisementTarget(adFolder), Outcome.MovedAd)
-                : new MoveDecision(null, Outcome.KeptNoFolder);
-        }
-
-        // 3. 有効な該当項目を優先度順に見て、このアカウントに振り分け先がある最初の項目へ
+        // 2. 有効な該当項目を優先度順に見て、このアカウントに振り分け先がある最初の項目へ
         var matched = context.Items
             .Where(item => item.Enabled && judgement.MatchedItems.Contains(item.Id))
             .OrderBy(item => item.Priority)

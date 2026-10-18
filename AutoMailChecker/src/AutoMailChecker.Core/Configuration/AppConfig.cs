@@ -14,7 +14,6 @@ public sealed record AppConfig
     public IReadOnlyList<string> IgnoreSenders { get; init; } = [];
 
     public IReadOnlyList<ItemDefinition> Items { get; init; } = [];
-    public AdvertisementConfig Advertisement { get; init; } = new();
     public PolicyConfig Policy { get; init; } = new();
     public TrialConfig Trial { get; init; } = new();
     public HistoryConfig History { get; init; } = new();
@@ -57,25 +56,6 @@ public sealed record AccountConfig
     [JsonIgnore]
     public string EffectiveCredentialKey =>
         string.IsNullOrWhiteSpace(CredentialKey) ? $"{AppInfo.Name}/{Id}" : CredentialKey;
-}
-
-public enum AdvertisementMode
-{
-    /// <summary>受信トレイに残す（既定）</summary>
-    Ignore,
-    /// <summary>広告用フォルダーへ移動する</summary>
-    Move,
-}
-
-public sealed record AdvertisementConfig
-{
-    public AdvertisementMode Mode { get; init; } = AdvertisementMode.Ignore;
-
-    /// <summary>アカウント ID → 広告用フォルダー。Mode が Move のときだけ使う。</summary>
-    public IReadOnlyDictionary<string, string> Folders { get; init; } = new Dictionary<string, string>();
-
-    public string? FolderFor(string accountId) =>
-        Folders.TryGetValue(accountId, out var folder) && !string.IsNullOrWhiteSpace(folder) ? folder.Trim() : null;
 }
 
 public sealed record PolicyConfig

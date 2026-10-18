@@ -66,7 +66,7 @@ public sealed class HistoryRow
         {
             Outcome.Moved or Outcome.MovedAd => (folder, HistoryStatus.Moved),
             Outcome.Planned => ($"予定: {folder}", HistoryStatus.Planned),
-            Outcome.KeptAd => ("広告（受信トレイ）", HistoryStatus.Kept),
+            Outcome.KeptAd => ("広告（受信トレイ）", HistoryStatus.Kept), // 以前の版の記録
             Outcome.KeptLowConfidence => ("確信度が低い（受信トレイ）", HistoryStatus.Kept),
             Outcome.KeptNoMatch => ("該当なし（受信トレイ）", HistoryStatus.Kept),
             Outcome.KeptNoFolder => ("振り分け先なし（受信トレイ）", HistoryStatus.Kept),

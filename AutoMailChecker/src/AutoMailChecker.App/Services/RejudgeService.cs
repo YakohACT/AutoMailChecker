@@ -39,7 +39,6 @@ public sealed class RejudgeService(
         ? target.Folder
         : decision.Outcome switch
         {
-            Outcome.KeptAd => "受信トレイに残す（広告）",
             Outcome.KeptLowConfidence => "受信トレイに残す（確信度が低い）",
             Outcome.KeptNoMatch => "受信トレイに残す（該当なし）",
             Outcome.KeptNoFolder => "受信トレイに残す（振り分け先なし）",

@@ -19,7 +19,6 @@ public static partial class ConfigValidator
         var accountIds = ValidateAccounts(config.Accounts, issues);
         ValidateIgnoreSenders(config.IgnoreSenders, issues);
         ValidateItems(config.Items, accountIds, issues);
-        ValidateAdvertisement(config.Advertisement, accountIds, issues);
         ValidateFolderConflicts(config, issues);
         ValidatePolicy(config.Policy, issues);
         ValidateRange(issues, ConfigSection.Trial, "trial.maxMessages", config.Trial.MaxMessages, 1, 1000);
@@ -107,7 +106,7 @@ public static partial class ConfigValidator
             }
             else if (string.Equals(id, ItemId.AdvertisementReserved, StringComparison.OrdinalIgnoreCase))
             {
-                Add(issues, ConfigSection.Items, $"{path}.id", $"「{ItemId.AdvertisementReserved}」は広告を表す予約 ID なので使えません。");
+                Add(issues, ConfigSection.Items, $"{path}.id", $"「{ItemId.AdvertisementReserved}」は予約 ID なので使えません。");
             }
             else if (!ids.Add(id))
             {
@@ -158,16 +157,6 @@ public static partial class ConfigValidator
         }
     }
 
-    private static void ValidateAdvertisement(AdvertisementConfig ad, HashSet<string> accountIds, List<ConfigIssue> issues)
-    {
-        if (!Enum.IsDefined(ad.Mode))
-        {
-            Add(issues, ConfigSection.Advertisement, "advertisement.mode", "ignore か move を指定してください。");
-        }
-
-        ValidateFolderMap(issues, ConfigSection.Advertisement, "advertisement.folders", ad.Folders, accountIds);
-    }
-
     private static void ValidateFolderMap(
         List<ConfigIssue> issues, ConfigSection section, string path,
         IReadOnlyDictionary<string, string> folders, HashSet<string> accountIds)
@@ -185,7 +174,7 @@ public static partial class ConfigValidator
         }
     }
 
-    /// <summary>同じアカウントの中で、振り分け先フォルダー（広告を移動するなら広告用も）が項目間で重複しないこと。</summary>
+    /// <summary>同じアカウントの中で、振り分け先フォルダーが項目間で重複しないこと。</summary>
     private static void ValidateFolderConflicts(AppConfig config, List<ConfigIssue> issues)
     {
         // アカウント ID → (フォルダー名 → 最初に使った場所)
@@ -221,11 +210,6 @@ public static partial class ConfigValidator
         {
             var item = config.Items[i];
             Check(ConfigSection.Items, $"items[{i}].folders", $"項目「{item.Label}」", item.Folders);
-        }
-
-        if (config.Advertisement.Mode == AdvertisementMode.Move)
-        {
-            Check(ConfigSection.Advertisement, "advertisement.folders", "広告", config.Advertisement.Folders);
         }
     }
 

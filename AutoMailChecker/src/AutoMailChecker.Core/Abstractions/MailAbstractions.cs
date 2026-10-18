@@ -41,8 +41,6 @@ public interface IItemFolderMover
 
     Task<MovedMailRef> MoveToItemFolderAsync(MailRef mail, ItemId item, CancellationToken ct);
 
-    Task<MovedMailRef> MoveToAdvertisementFolderAsync(MailRef mail, CancellationToken ct);
-
     /// <summary>
     /// 判定履歴画面でユーザーが「受信トレイに戻す」を押したときだけ呼ぶ（自動処理からは呼ばない）。
     /// DestUid がなければ messageId で移動先フォルダーを検索する。

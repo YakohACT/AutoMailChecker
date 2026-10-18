@@ -69,7 +69,6 @@ public sealed class RejudgeViewModel : ObservableObject
         Message = null;
         Result = string.Join(Environment.NewLine,
             $"該当項目: {(result.MatchedLabels.Count == 0 ? "なし" : string.Join("、", result.MatchedLabels))}",
-            $"広告: {(judgement.IsAdvertisement ? "はい" : "いいえ")}",
             $"確信度: {judgement.Confidence switch { Confidence.High => "高", Confidence.Medium => "中", _ => "低" }}",
             $"振り分け先: {result.Destination}",
             $"要約: {judgement.Summary}",

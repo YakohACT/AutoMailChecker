@@ -7,7 +7,7 @@ namespace AutoMailChecker.Core;
 [JsonConverter(typeof(ItemIdJsonConverter))]
 public readonly record struct ItemId(string Value)
 {
-    /// <summary>誤判定の記録で「広告」を表す予約 ID。項目には使えない。</summary>
+    /// <summary>以前の版の誤判定の記録で「広告」を表していた予約 ID。古い記録と混ざらないよう、項目には使えない。</summary>
     public const string AdvertisementReserved = "ad";
 
     public override string ToString() => Value;

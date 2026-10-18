@@ -8,7 +8,7 @@ using MailKit.Search;
 namespace AutoMailChecker.Mail;
 
 /// <summary>
-/// IItemFolderMover の IMAP 実装（アカウントごとに1つ）。メールを変更するのはこの3つの操作だけ。
+/// IItemFolderMover の IMAP 実装（アカウントごとに1つ）。メールを変更するのはこの2つの操作だけ。
 /// - 移動先は設定の「項目 → このアカウントのフォルダー」の対応表から引く。外から移動先を指定する手段はない
 /// - 同じ接続の中の MOVE（なければ COPY ＋ 削除フラグ ＋ 当該 UID だけの UID EXPUNGE）で完結させ、
 ///   アカウントをまたぐ移動やメールのダウンロード・追加（APPEND）はしない
@@ -22,13 +22,6 @@ public sealed class ImapItemFolderMover(ImapAccountSession session, IConfigProvi
     {
         var folder = config.Current.Items.FirstOrDefault(i => i.Id == item)?.FolderFor(AccountId)
             ?? throw new MailFolderNotFoundException(AccountId, $"（項目「{item.Value}」の振り分け先が未設定）");
-        return MoveAsync(mail, folder, ct);
-    }
-
-    public Task<MovedMailRef> MoveToAdvertisementFolderAsync(MailRef mail, CancellationToken ct)
-    {
-        var folder = config.Current.Advertisement.FolderFor(AccountId)
-            ?? throw new MailFolderNotFoundException(AccountId, "（広告用フォルダーが未設定）");
         return MoveAsync(mail, folder, ct);
     }
 
