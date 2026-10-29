@@ -72,8 +72,8 @@ public sealed record PolicyConfig
 
 public sealed record TrialConfig
 {
-    /// <summary>お試し仕分けの件数上限（1〜1000）。</summary>
-    public int MaxMessages { get; init; } = 200;
+    /// <summary>お試し仕分けの件数上限（1以上）。null なら上限なし（既定）。</summary>
+    public int? MaxMessages { get; init; }
 }
 
 public sealed record HistoryConfig

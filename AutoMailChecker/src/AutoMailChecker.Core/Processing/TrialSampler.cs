@@ -1,15 +1,20 @@
 namespace AutoMailChecker.Core;
 
-/// <summary>お試し仕分けの対象選び。上限を超えたら、受信日時順に並べて期間内から等間隔に間引く。</summary>
+/// <summary>お試し仕分けの対象選び。上限を超えたら、受信日時順に並べて期間内から等間隔に間引く。上限がなければすべて。</summary>
 public static class TrialSampler
 {
-    public static IReadOnlyList<FoundMail> Select(IReadOnlyList<FoundMail> found, int maxMessages)
+    public static IReadOnlyList<FoundMail> Select(IReadOnlyList<FoundMail> found, int? limit)
     {
         var ordered = found
             .OrderBy(m => m.Received)
             .ThenBy(m => m.Ref.AccountId, StringComparer.Ordinal)
             .ThenBy(m => m.Ref.Uid)
             .ToList();
+        if (limit is not { } maxMessages)
+        {
+            return ordered;
+        }
+
         if (maxMessages <= 0)
         {
             return [];

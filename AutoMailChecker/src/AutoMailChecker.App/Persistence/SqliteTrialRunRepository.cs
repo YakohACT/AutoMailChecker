@@ -33,7 +33,7 @@ internal sealed class SqliteTrialRunRepository(SqliteDb db) : ITrialRunRepositor
                 .With("$accounts", JsonSerializer.Serialize(run.Accounts))
                 .With("$folders", JsonSerializer.Serialize(run.Folders))
                 .With("$mode", run.Mode == TrialMode.Move ? "move" : "preview")
-                .With("$max", run.MaxMessages)
+                .With("$max", run.MaxMessages ?? 0) // 0 は上限なし
                 .With("$now", nowText);
             id = Convert.ToInt64(await command.ExecuteScalarAsync(ct).ConfigureAwait(false));
         }
@@ -121,7 +121,7 @@ internal sealed class SqliteTrialRunRepository(SqliteDb db) : ITrialRunRepositor
         Accounts = JsonSerializer.Deserialize<List<string>>(r.GetString(3)) ?? [],
         Folders = JsonSerializer.Deserialize<List<string>>(r.GetString(4)) ?? [],
         Mode = r.GetString(5) == "move" ? TrialMode.Move : TrialMode.Preview,
-        MaxMessages = r.GetInt32(6),
+        MaxMessages = r.GetInt32(6) is > 0 and var max ? max : null,
         Status = r.GetString(7) switch
         {
             "running" => TrialRunStatus.Running,

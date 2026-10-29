@@ -142,7 +142,8 @@ public sealed record TrialRun
     public required IReadOnlyList<string> Accounts { get; init; }
     public required IReadOnlyList<string> Folders { get; init; }
     public required TrialMode Mode { get; init; }
-    public required int MaxMessages { get; init; }
+    /// <summary>件数の上限。null なら上限なし。</summary>
+    public int? MaxMessages { get; init; }
     public TrialRunStatus Status { get; init; } = TrialRunStatus.Running;
     public int Total { get; init; }
     public int Processed { get; init; }

@@ -21,7 +21,11 @@ public static partial class ConfigValidator
         ValidateItems(config.Items, accountIds, issues);
         ValidateFolderConflicts(config, issues);
         ValidatePolicy(config.Policy, issues);
-        ValidateRange(issues, ConfigSection.Trial, "trial.maxMessages", config.Trial.MaxMessages, 1, 1000);
+        if (config.Trial.MaxMessages is < 1)
+        {
+            Add(issues, ConfigSection.Trial, "trial.maxMessages", $"1 以上の数字か、null（上限なし）を指定してください（現在 {config.Trial.MaxMessages}）。");
+        }
+
         ValidateRange(issues, ConfigSection.History, "history.retentionDays", config.History.RetentionDays, 7, 365);
         ValidateLlm(config.Llm, issues);
         ValidatePause(config.Pause, issues);

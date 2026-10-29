@@ -34,8 +34,9 @@ public interface ITrialService
 }
 
 /// <param name="Folder">既定は受信トレイ。ほかのフォルダーでは「結果の表示のみ」に固定する</param>
+/// <param name="MaxMessages">件数の上限。null なら期間内のメールをすべて対象にする</param>
 public sealed record TrialRequest(
-    DateOnly From, DateOnly To, IReadOnlyList<string> Accounts, string Folder, TrialMode Mode, int MaxMessages);
+    DateOnly From, DateOnly To, IReadOnlyList<string> Accounts, string Folder, TrialMode Mode, int? MaxMessages);
 
 /// <param name="Found">期間内に見つかった件数</param>
 /// <param name="Selected">上限で間引いたあとの件数</param>

@@ -34,6 +34,12 @@ public sealed class LlmService(
     private long _startedAt;
     private int _crashes;
 
+    /// <summary>
+    /// 予期しない終了（切断）を待つか。起動（接続）できたら true、終了を知らせたら false にする。
+    /// 知らせ終わった終了をもう一度待つと、完了済みのままなので待たずに戻り、ループが空回りする。
+    /// </summary>
+    private bool _watchingExit;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         runModes.Changed += OnModeChanged;
@@ -45,7 +51,9 @@ public sealed class LlmService(
 
                 // 運転モードが変わるか、llama-server が落ちるか、再試行の時刻になるまで待つ
                 using var iteration = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                var exited = server.WaitForUnexpectedExitAsync(iteration.Token);
+                var exited = _watchingExit
+                    ? server.WaitForUnexpectedExitAsync(iteration.Token)
+                    : Task.Delay(Timeout.Infinite, iteration.Token);
                 var woken = _wake.WaitAsync(retryIn ?? Timeout.InfiniteTimeSpan, iteration.Token);
                 var first = await Task.WhenAny(exited, woken).ConfigureAwait(false);
                 stoppingToken.ThrowIfCancellationRequested();
@@ -53,6 +61,7 @@ public sealed class LlmService(
 
                 if (first == exited && exited.IsCompletedSuccessfully)
                 {
+                    _watchingExit = false;
                     OnCrashed();
                 }
             }
@@ -102,6 +111,7 @@ public sealed class LlmService(
         {
             if (desired is not { } profile)
             {
+                _watchingExit = false;
                 await server.StopAsync(ct).ConfigureAwait(false);
                 logger.LogInformation(server.IsExternal
                         ? "完全停止のため AI サーバーへの要求を止めました（サーバーは起動したままです。{Reason}）。"
@@ -140,6 +150,7 @@ public sealed class LlmService(
 
         _retryAt = DateTimeOffset.MinValue;
         _startedAt = time.GetTimestamp();
+        _watchingExit = true;
         status.ClearError(StatusSource);
         queueSignal.Notify(); // 溜まっていた分の判定を始める
         return null;

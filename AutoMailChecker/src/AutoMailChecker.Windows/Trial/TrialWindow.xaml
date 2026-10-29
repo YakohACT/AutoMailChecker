@@ -76,7 +76,7 @@
                 <TextBlock Grid.Row="4" Text="件数の上限" Style="{StaticResource FieldLabel}" />
                 <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
                     <TextBox Text="{Binding MaxMessagesText, UpdateSourceTrigger=PropertyChanged}" Width="70" VerticalContentAlignment="Center" />
-                    <TextBlock Text="件（超える場合は期間内から均等に間引きます）" Foreground="{StaticResource SubtleText}"
+                    <TextBlock Text="件（空欄なら上限なし。数字を入れると、超える分は期間内から均等に間引きます）" Foreground="{StaticResource SubtleText}"
                                Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12" />
                 </StackPanel>
             </Grid>

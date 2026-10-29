@@ -36,7 +36,10 @@ public interface ILlmRuntime
 
     Task StopAsync(CancellationToken ct);
 
-    /// <summary>使っているサーバーが予期せず終了する（または繋がらなくなる）まで待つ（意図して止めたときは完了しない）。</summary>
+    /// <summary>
+    /// 使っているサーバーが予期せず終了する（または繋がらなくなる）まで待つ（意図して止めたときは完了しない）。
+    /// 一度終了したら、次に <see cref="StartAsync"/> が成功するまで完了したままなので、起動できたときだけ待つこと。
+    /// </summary>
     Task WaitForUnexpectedExitAsync(CancellationToken ct);
 }
 

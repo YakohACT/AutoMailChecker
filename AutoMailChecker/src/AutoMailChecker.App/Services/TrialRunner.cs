@@ -24,7 +24,7 @@ public sealed class TrialRunner(
     {
         Validate(request);
         var found = await SearchAsync(request, ct).ConfigureAwait(false);
-        var selected = Math.Min(found.Count, request.MaxMessages);
+        var selected = request.MaxMessages is { } max ? Math.Min(found.Count, max) : found.Count;
         var perMail = await store.Judgements.AverageDurationAsync(DurationSampleSize, MinDurationSamples, ct).ConfigureAwait(false)
             ?? DefaultPerMail;
         return new TrialEstimate(found.Count, selected, perMail, perMail * selected);
@@ -155,9 +155,9 @@ public sealed class TrialRunner(
             throw new ArgumentException("対象フォルダーを指定してください。");
         }
 
-        if (request.MaxMessages is < 1 or > 1000)
+        if (request.MaxMessages is < 1)
         {
-            throw new ArgumentException("件数の上限は1〜1000で指定してください。");
+            throw new ArgumentException("件数の上限は1以上で指定してください（空欄なら上限なし）。");
         }
     }
 }

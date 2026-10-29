@@ -65,7 +65,7 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
         var today = DateTime.Today;
         _from = today.AddDays(-30);
         _to = today;
-        _maxMessagesText = config.Current.Trial.MaxMessages.ToString(CultureInfo.InvariantCulture);
+        _maxMessagesText = config.Current.Trial.MaxMessages?.ToString(CultureInfo.InvariantCulture) ?? "";
         Accounts = new ObservableCollection<AccountChoice>(config.Current.Accounts.Select(a => new AccountChoice(a.Id)));
 
         EstimateCommand = new AsyncCommand(EstimateAsync, onError: ShowError);
@@ -231,9 +231,16 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
             throw new ArgumentException("期間を指定してください。");
         }
 
-        if (!int.TryParse(MaxMessagesText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var max))
+        // 空欄なら上限なし
+        int? max = null;
+        if (!string.IsNullOrWhiteSpace(MaxMessagesText))
         {
-            throw new ArgumentException("件数の上限は数字で指定してください。");
+            if (!int.TryParse(MaxMessagesText.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
+                throw new ArgumentException("件数の上限は数字で指定してください（空欄なら上限なし）。");
+            }
+
+            max = value;
         }
 
         var accounts = Accounts.Where(a => a.IsSelected).Select(a => a.Id).ToList();

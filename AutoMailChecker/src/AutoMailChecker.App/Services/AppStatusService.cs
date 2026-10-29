@@ -40,10 +40,16 @@ public sealed class AppStatusService : IAppStatus, IStatusReporter
 
     public void SetTrial(TrialProgress? trial) => Update(s => s with { Trial = trial });
 
-    /// <summary>同じ Source のエラーは置き換える。</summary>
+    /// <summary>同じ Source のエラーは置き換える。内容が同じなら何もしない（変更を知らせない）。</summary>
     public void ReportError(string source, string message) => Update(s =>
     {
-        var errors = s.Errors.Where(e => e.Source != source).Append(new StatusError(source, message)).ToList();
+        var error = new StatusError(source, message);
+        if (s.Errors.Contains(error))
+        {
+            return s;
+        }
+
+        var errors = s.Errors.Where(e => e.Source != source).Append(error).ToList();
         return s with { Errors = errors };
     });
 
