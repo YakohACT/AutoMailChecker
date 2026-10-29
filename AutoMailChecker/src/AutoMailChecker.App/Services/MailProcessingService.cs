@@ -253,7 +253,9 @@ public sealed class MailProcessingService(
         {
             // 振り分け先がサーバーにない。このフォルダーへの移動を止め（次からは次点の項目へ）、トレイで知らせる
             _missingFolders.Add((item.Mail.AccountId, ex.Folder));
-            status.ReportError(MoveErrorSource, $"{ex.Message}その振り分け先への移動を止めています。");
+            status.ReportError(MoveErrorSource, Translate.Text(
+                $"{ex.Message}その振り分け先への移動を止めています。",
+                $"{ex.Message} Moves to that destination are stopped."));
             logger.LogWarning("{Message}", ex.Message);
             await store.Judgements.RecordAsync(
                 record with { Outcome = Outcome.KeptNoFolder, TargetItemId = null, TargetFolder = null },
@@ -262,10 +264,14 @@ public sealed class MailProcessingService(
         }
         catch (MailMoveException ex)
         {
-            status.ReportError(MoveErrorSource, $"{item.Mail.AccountId}: 移動に失敗しました: {ex.Message}");
+            status.ReportError(MoveErrorSource, Translate.Text(
+                $"{item.Mail.AccountId}: 移動に失敗しました: {ex.Message}",
+                $"{item.Mail.AccountId}: could not move a mail: {ex.Message}"));
             logger.LogWarning("{Account} UID {Uid}: 移動に失敗しました: {Message}", item.Mail.AccountId, item.Mail.Uid, ex.Message);
             await store.Judgements.RecordAsync(
-                record with { Outcome = Outcome.Failed, Reason = $"移動に失敗しました: {ex.Message}（AI の判定理由: {record.Reason}）" },
+                record with { Outcome = Outcome.Failed, Reason = Translate.Text(
+                    $"移動に失敗しました: {ex.Message}（AI の判定理由: {record.Reason}）",
+                    $"Could not move the mail: {ex.Message} (AI reason: {record.Reason})") },
                 move: null, completed: item, ct).ConfigureAwait(false);
             return;
         }
@@ -273,7 +279,9 @@ public sealed class MailProcessingService(
         {
             logger.LogInformation("{Message}", ex.Message);
             await store.Judgements.RecordAsync(
-                record with { Outcome = Outcome.Failed, Reason = "移動する前に、メールが元のフォルダーからなくなっていました。" },
+                record with { Outcome = Outcome.Failed, Reason = Translate.Text(
+                    "移動する前に、メールが元のフォルダーからなくなっていました。",
+                    "The mail had already left its folder before it could be moved.") },
                 move: null, completed: item, ct).ConfigureAwait(false);
             return;
         }
@@ -321,7 +329,9 @@ public sealed class MailProcessingService(
             record with
             {
                 Outcome = Outcome.Failed,
-                Reason = "移動の途中で終了したため、移動先を確認できませんでした（元のフォルダーにも振り分け先にも見つかりません）。",
+                Reason = Translate.Text(
+                    "移動の途中で終了したため、移動先を確認できませんでした（元のフォルダーにも振り分け先にも見つかりません）。",
+                    "The app exited during the move, so the destination could not be confirmed (the mail is in neither the original folder nor the destination)."),
             },
             move: null, completed: item, ct).ConfigureAwait(false);
         logger.LogWarning("{Account} UID {Uid}: 移動の途中で終了したメールが見つかりませんでした。", item.Mail.AccountId, item.Mail.Uid);

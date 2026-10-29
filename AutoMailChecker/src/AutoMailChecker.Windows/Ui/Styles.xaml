@@ -74,6 +74,7 @@
 
     <Style x:Key="FieldTitle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource SubtleText}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="Margin" Value="0,10,0,3" />
     </Style>
 

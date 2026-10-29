@@ -1,6 +1,7 @@
-using System.Net;
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text.Json;
+using AutoMailChecker.Core;
 
 namespace AutoMailChecker.Llm;
 
@@ -31,7 +32,9 @@ internal sealed class LlamaProbe(HttpMessageHandler handler) : IDisposable
             return hasHealth
                 ? baseAddress.Authority
                 : throw new ProbeException(ProbeFailure.Failed,
-                    $"{Describe(baseAddress)} は AI サーバーではないようです（/health も /v1/models もありません）。接続先 URL を確かめてください。");
+                    Translate.Text(
+                        $"{Describe(baseAddress)} は AI サーバーではないようです（/health も /v1/models もありません）。接続先 URL を確かめてください。",
+                        $"{Describe(baseAddress)} does not look like an AI server (it has neither /health nor /v1/models). Check the server URL."));
         }
 
         var text = await models.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -96,12 +99,16 @@ internal sealed class LlamaProbe(HttpMessageHandler handler) : IDisposable
         catch (HttpRequestException ex)
         {
             throw new ProbeException(ProbeFailure.Unreachable,
-                $"{Describe(baseAddress)} に繋がりません。AI サーバーが起動しているか確かめてください（{ex.Message}）。", ex);
+                Translate.Text(
+                    $"{Describe(baseAddress)} に繋がりません。AI サーバーが起動しているか確かめてください（{ex.Message}）。",
+                    $"Cannot reach {Describe(baseAddress)}. Check that the AI server is running ({ex.Message})."), ex);
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
             throw new ProbeException(ProbeFailure.Unreachable,
-                $"{Describe(baseAddress)} が {RequestTimeout.TotalSeconds:0} 秒以内に応答しません。", ex);
+                Translate.Text(
+                    $"{Describe(baseAddress)} が {RequestTimeout.TotalSeconds:0} 秒以内に応答しません。",
+                    $"{Describe(baseAddress)} did not respond within {RequestTimeout.TotalSeconds:0} seconds."), ex);
         }
     }
 
@@ -110,14 +117,20 @@ internal sealed class LlamaProbe(HttpMessageHandler handler) : IDisposable
         switch (status)
         {
             case HttpStatusCode.ServiceUnavailable:
-                throw new ProbeException(ProbeFailure.Loading, $"{Describe(baseAddress)} はモデルの読み込み中です。");
+                throw new ProbeException(ProbeFailure.Loading, Translate.Text(
+                    $"{Describe(baseAddress)} はモデルの読み込み中です。",
+                    $"{Describe(baseAddress)} is loading its model."));
             case HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden:
                 throw new ProbeException(ProbeFailure.Rejected,
-                    $"{Describe(baseAddress)} が API キーを受け付けませんでした。全般設定で API キーを登録してください。");
+                    Translate.Text(
+                        $"{Describe(baseAddress)} が API キーを受け付けませんでした。全般設定で API キーを登録してください。",
+                        $"{Describe(baseAddress)} rejected the API key. Register the API key in General settings."));
             case HttpStatusCode.NotFound:
                 return;
             case < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices:
-                throw new ProbeException(ProbeFailure.Failed, $"{Describe(baseAddress)} がエラーを返しました（HTTP {(int)status}）。");
+                throw new ProbeException(ProbeFailure.Failed, Translate.Text(
+                    $"{Describe(baseAddress)} がエラーを返しました（HTTP {(int)status}）。",
+                    $"{Describe(baseAddress)} returned an error (HTTP {(int)status})."));
         }
     }
 

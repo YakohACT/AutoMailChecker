@@ -39,7 +39,10 @@ public partial class App : Application
         {
             _singleInstance.Dispose();
             _singleInstance = null;
-            MessageBox.Show("AutoMailChecker はすでに起動しています。タスクトレイを確認してください。",
+            // 設定を読む前なので、どちらの言語でも読めるよう両方を出す
+            MessageBox.Show(
+                "AutoMailChecker はすでに起動しています。タスクトレイを確認してください。\n\n"
+                + "AutoMailChecker is already running. Check the notification area of the taskbar.",
                 AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
@@ -51,6 +54,11 @@ public partial class App : Application
             _logger = _host.Services.GetRequiredService<ILogger<App>>();
             RegisterGlobalExceptionHandlers();
 
+            // 画面の言語は設定に従う。設定ファイルや全般タブで変わったら、開いている画面もそのまま切り替える
+            _config = _host.Services.GetRequiredService<IConfigProvider>();
+            Translate.SetLanguage(_config.Current.Ui.Language);
+            _config.Changed += (_, args) => Translate.SetLanguage(args.Current.Ui.Language);
+
             // 各サービスが UI スレッドの上で動き続けないよう、スレッドプールで開始する
             var host = _host;
             await Task.Run(() => host.StartAsync());
@@ -58,7 +66,6 @@ public partial class App : Application
             // await の後は UI スレッドに戻るので、ここでトレイとウィンドウの窓口を作る
             var services = _host.Services;
             var status = services.GetRequiredService<IAppStatus>();
-            _config = services.GetRequiredService<IConfigProvider>();
             _windows = new AppWindows(
                 new SettingsServices(
                     _config,
@@ -93,7 +100,7 @@ public partial class App : Application
                 shownErrors = snapshot.Errors;
                 if (newErrors.Count > 0 && _config.Current.Policy.ErrorPopup)
                 {
-                    _tray?.ShowNotification(AppInfo.Name, string.Join("\n", newErrors.Select(e => $"{e.Source}: {e.Message}")));
+                    _tray?.ShowNotification(AppInfo.Name, string.Join("\n", newErrors.Select(TrayStatusFormatter.ErrorLine)));
                 }
             });
 
@@ -102,7 +109,8 @@ public partial class App : Application
         catch (Exception ex)
         {
             _logger?.LogCritical(ex, "起動に失敗しました。");
-            MessageBox.Show($"起動に失敗しました。\n{ex.Message}", AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(Translate.Text($"起動に失敗しました。\n{ex.Message}", $"The app could not start.\n{ex.Message}"),
+                AppInfo.Name, MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
     }

@@ -20,7 +20,9 @@ public sealed class ImapConnector(ICredentialStore credentials)
     {
         var password = ReadPassword(account)
             ?? throw new MailServerException(account.Id,
-                $"パスワードが登録されていません（資格情報マネージャーの「{account.EffectiveCredentialKey}」）。",
+                Translate.Text(
+                    $"パスワードが登録されていません（資格情報マネージャーの「{account.EffectiveCredentialKey}」）。",
+                    $"No password is registered (\"{account.EffectiveCredentialKey}\" in Credential Manager)."),
                 isAuthenticationFailure: true);
 
         var client = new ImapClient { Timeout = (int)CommandTimeout.TotalMilliseconds };
@@ -35,12 +37,16 @@ public sealed class ImapConnector(ICredentialStore credentials)
         {
             client.Dispose();
             throw new MailServerException(account.Id,
-                "認証に失敗しました。ユーザー名とアプリ用パスワードを確認してください。", isAuthenticationFailure: true, ex);
+                Translate.Text(
+                    "認証に失敗しました。ユーザー名とアプリ用パスワードを確認してください。",
+                    "Sign-in failed. Check the user name and the app password."), isAuthenticationFailure: true, ex);
         }
         catch (Exception ex) when (IsConnectionFailure(ex))
         {
             client.Dispose();
-            throw new MailServerException(account.Id, $"サーバーに接続できません: {ex.Message}", isAuthenticationFailure: false, ex);
+            throw new MailServerException(account.Id, Translate.Text(
+                $"サーバーに接続できません: {ex.Message}",
+                $"Cannot connect to the server: {ex.Message}"), isAuthenticationFailure: false, ex);
         }
         catch
         {

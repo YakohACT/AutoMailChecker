@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Windows.Input;
-using AutoMailChecker.Core;
 using AutoMailChecker.Core.Configuration;
 using AutoMailChecker.Core.State;
+using AutoMailChecker.Core;
 using AutoMailChecker.Windows.Startup;
 using AutoMailChecker.Windows.Ui;
 
@@ -17,7 +18,7 @@ public sealed class AccountEditViewModel : EditableObject
     private readonly ICredentialStore _credentials;
     private string _id;
     private string _user;
-    private string _passwordStatus = "";
+    private bool? _hasPassword;
     private string? _testResult;
 
     public AccountEditViewModel(AccountConfig original, bool isNew, ICredentialStore credentials)
@@ -54,7 +55,12 @@ public sealed class AccountEditViewModel : EditableObject
 
     public string Host => _original.Host;
     public string User { get => _user; set => SetProperty(ref _user, value); }
-    public string PasswordStatus { get => _passwordStatus; private set => SetProperty(ref _passwordStatus, value); }
+    public string PasswordStatus => _hasPassword switch
+    {
+        true => Translate.Text("登録済み", "Registered"),
+        false => Translate.Text("未登録", "Not registered"),
+        null => Translate.Text("確認できません", "Unknown"),
+    };
     public string? TestResult { get => _testResult; set => SetProperty(ref _testResult, value); }
 
     public AccountConfig ToConfig() => _original with
@@ -69,12 +75,14 @@ public sealed class AccountEditViewModel : EditableObject
     {
         try
         {
-            PasswordStatus = _credentials.ReadSecret(ToConfig().EffectiveCredentialKey) is { Length: > 0 } ? "登録済み" : "未登録";
+            _hasPassword = _credentials.ReadSecret(ToConfig().EffectiveCredentialKey) is { Length: > 0 };
         }
         catch (Win32Exception)
         {
-            PasswordStatus = "確認できません";
+            _hasPassword = null;
         }
+
+        OnPropertyChanged(nameof(PasswordStatus));
     }
 }
 
@@ -91,6 +99,7 @@ public sealed class GeneralTabViewModel : EditableObject
     private readonly IStateStore _store;
     private readonly ISettingsDialogs _dialogs;
     private readonly string _logDirectory;
+    private readonly Func<UiLanguage, Task> _saveLanguage;
     private AccountEditViewModel? _selectedAccount;
     private bool _autoSort;
     private bool _highConfidenceOnly;
@@ -98,16 +107,20 @@ public sealed class GeneralTabViewModel : EditableObject
     private string _retentionDaysText;
     private string _endpointText;
     private string _modelPath;
-    private string _apiKeyStatus = "";
-    private string? _llmTestResult;
+    private bool? _hasApiKey;
+    private Func<string>? _llmTestResult;
     private bool _autoStartEnabled;
-    private string? _autoStartMessage;
+    private Func<string>? _autoStartMessage;
+    private Choice<UiLanguage> _selectedLanguage;
+    private Func<string>? _languageMessage;
     private bool _hasCompletedTrial;
 
     public GeneralTabViewModel(
         AppConfig config, ICredentialStore credentials, IMailConnectionTester tester, ILlmConnectionTester llmTester,
-        IAutoStartRegistrar autoStart, IStateStore store, ISettingsDialogs dialogs, string logDirectory)
+        IAutoStartRegistrar autoStart, IStateStore store, ISettingsDialogs dialogs, string logDirectory,
+        Func<UiLanguage, Task> saveLanguage)
     {
+        _saveLanguage = saveLanguage;
         _credentials = credentials;
         _tester = tester;
         _llmTester = llmTester;
@@ -125,6 +138,7 @@ public sealed class GeneralTabViewModel : EditableObject
         _endpointText = config.Llm.Endpoint;
         _modelPath = config.Llm.Model;
         RefreshApiKeyStatus();
+        _selectedLanguage = LanguageChoices.FirstOrDefault(c => c.Value == config.Ui.Language) ?? LanguageChoices[0];
 
         AddICloudCommand = new RelayCommand(() => AddAccount("icloud", "imap.mail.me.com"));
         AddGmailCommand = new RelayCommand(() => AddAccount("gmail", "imap.gmail.com"));
@@ -164,7 +178,9 @@ public sealed class GeneralTabViewModel : EditableObject
         set
         {
             if (value && !_autoSort && !_hasCompletedTrial && !_dialogs.Confirm(
-                    "まだお試し仕分けを行っていません。\n新着メールの自動仕分けを始めると、届いたメールが実際に振り分け先へ移動します。\nオンにしますか？"))
+                    Translate.Text(
+                        "まだお試し仕分けを行っていません。\n新着メールの自動仕分けを始めると、届いたメールが実際に振り分け先へ移動します。\nオンにしますか？",
+                        "You have not run a trial sort yet.\nOnce automatic sorting starts, incoming mail is actually moved to its destination.\nTurn it on?")))
             {
                 OnPropertyChanged(); // チェックを戻す
                 return;
@@ -213,8 +229,16 @@ public sealed class GeneralTabViewModel : EditableObject
     /// <summary>モデルファイル。接続先 URL が空のときだけ使う。変更は再起動が必要。</summary>
     public string ModelPath { get => _modelPath; set => SetProperty(ref _modelPath, value); }
 
-    public string ApiKeyStatus { get => _apiKeyStatus; private set => SetProperty(ref _apiKeyStatus, value); }
-    public string? LlmTestResult { get => _llmTestResult; private set => SetProperty(ref _llmTestResult, value); }
+    public string ApiKeyStatus => _hasApiKey switch
+    {
+        true => Translate.Text("API キー: 登録済み", "API key: registered"),
+        false => Translate.Text(
+            "API キー: 未登録（サーバーを --api-key 付きで起動したときだけ必要です）",
+            "API key: not registered (needed only if the server was started with --api-key)"),
+        null => Translate.Text("API キー: 確認できません", "API key: unknown"),
+    };
+
+    public string? LlmTestResult => _llmTestResult?.Invoke();
 
     /// <summary>Windows のログオン時に自動で起動する（タスクスケジューラ）。切り替えるとすぐ登録・削除する。</summary>
     public bool AutoStartEnabled
@@ -232,26 +256,54 @@ public sealed class GeneralTabViewModel : EditableObject
                 if (value)
                 {
                     _autoStart.Register();
-                    AutoStartMessage = "タスクスケジューラに登録しました。次回のログオンから自動で起動します。";
+                    SetAutoStartMessage(() => Translate.Text(
+                        "タスクスケジューラに登録しました。次回のログオンから自動で起動します。",
+                        "Registered in Task Scheduler. The app starts automatically from your next sign-in."));
                 }
                 else
                 {
                     _autoStart.Unregister();
-                    AutoStartMessage = "タスクスケジューラから削除しました。";
+                    SetAutoStartMessage(() => Translate.Text("タスクスケジューラから削除しました。", "Removed from Task Scheduler."));
                 }
 
                 _autoStartEnabled = value;
             }
             catch (Exception ex) when (ex is InvalidOperationException or TimeoutException or Win32Exception)
             {
-                AutoStartMessage = ex.Message;
+                SetAutoStartMessage(() => ex.Message);
             }
 
             OnPropertyChanged();
         }
     }
 
-    public string? AutoStartMessage { get => _autoStartMessage; private set => SetProperty(ref _autoStartMessage, value); }
+    public string? AutoStartMessage => _autoStartMessage?.Invoke();
+
+    /// <summary>画面の言語の選択肢。表示名はそれぞれの言語で書く（どちらの言語でも読めるように）。</summary>
+    public IReadOnlyList<Choice<UiLanguage>> LanguageChoices { get; } =
+    [
+        new("日本語", UiLanguage.Japanese),
+        new("English", UiLanguage.English),
+    ];
+
+    /// <summary>画面の言語。選ぶとすぐ切り替え、設定ファイルに保存する（ほかの欄の入力中の内容はそのまま）。</summary>
+    public Choice<UiLanguage> SelectedLanguage
+    {
+        get => _selectedLanguage;
+        set
+        {
+            if (value is null || !SetProperty(ref _selectedLanguage, value))
+            {
+                return;
+            }
+
+            Translate.SetLanguage(value.Value);
+            _ = SaveLanguageAsync(value.Value);
+        }
+    }
+
+    /// <summary>言語を保存できなかったときの知らせ。</summary>
+    public string? LanguageMessage => _languageMessage?.Invoke();
 
     /// <summary>画面を開いたとき。自動起動の登録状況と、お試し仕分けを行ったことがあるかを調べる。</summary>
     public async Task InitializeAsync()
@@ -262,7 +314,8 @@ public sealed class GeneralTabViewModel : EditableObject
         }
         catch (Exception ex) when (ex is InvalidOperationException or TimeoutException or Win32Exception)
         {
-            AutoStartMessage = $"自動起動の登録状況を確認できません: {ex.Message}";
+            SetAutoStartMessage(() => Translate.Text(
+                $"自動起動の登録状況を確認できません: {ex.Message}", $"Cannot check the automatic start registration: {ex.Message}"));
         }
 
         OnPropertyChanged(nameof(AutoStartEnabled));
@@ -284,14 +337,47 @@ public sealed class GeneralTabViewModel : EditableObject
     {
         try
         {
-            ApiKeyStatus = _credentials.ReadSecret(LlmEndpoint.ApiKeyCredentialKey) is { Length: > 0 }
-                ? "API キー: 登録済み"
-                : "API キー: 未登録（サーバーを --api-key 付きで起動したときだけ必要です）";
+            _hasApiKey = _credentials.ReadSecret(LlmEndpoint.ApiKeyCredentialKey) is { Length: > 0 };
         }
         catch (Win32Exception)
         {
-            ApiKeyStatus = "API キー: 確認できません";
+            _hasApiKey = null;
         }
+
+        OnPropertyChanged(nameof(ApiKeyStatus));
+    }
+
+    private async Task SaveLanguageAsync(UiLanguage language)
+    {
+        try
+        {
+            await _saveLanguage(language);
+            SetLanguageMessage(null);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            SetLanguageMessage(() => Translate.Text(
+                $"言語を設定ファイルに保存できませんでした（次回の起動では元の言語に戻ります）: {ex.Message}",
+                $"Could not save the language to the settings file (it goes back to the previous language at the next start): {ex.Message}"));
+        }
+    }
+
+    private void SetAutoStartMessage(Func<string>? message)
+    {
+        _autoStartMessage = message;
+        OnPropertyChanged(nameof(AutoStartMessage));
+    }
+
+    private void SetLlmTestResult(Func<string>? message)
+    {
+        _llmTestResult = message;
+        OnPropertyChanged(nameof(LlmTestResult));
+    }
+
+    private void SetLanguageMessage(Func<string>? message)
+    {
+        _languageMessage = message;
+        OnPropertyChanged(nameof(LanguageMessage));
     }
 
     private void RegisterApiKey()
@@ -300,7 +386,9 @@ public sealed class GeneralTabViewModel : EditableObject
         {
             _credentials.WriteSecret(LlmEndpoint.ApiKeyCredentialKey, "api-key", apiKey);
             RefreshApiKeyStatus();
-            LlmTestResult = $"API キーを資格情報マネージャー（{LlmEndpoint.ApiKeyCredentialKey}）に登録しました。";
+            SetLlmTestResult(() => Translate.Text(
+                $"API キーを資格情報マネージャー（{LlmEndpoint.ApiKeyCredentialKey}）に登録しました。",
+                $"Registered the API key in Credential Manager ({LlmEndpoint.ApiKeyCredentialKey})."));
         }
     }
 
@@ -308,18 +396,21 @@ public sealed class GeneralTabViewModel : EditableObject
     {
         if (UsesModelFile)
         {
-            LlmTestResult = "接続先 URL を入力してください（空のときは、アプリがモデルファイルで llama-server を起動します）。";
+            SetLlmTestResult(() => Translate.Text(
+                "接続先 URL を入力してください（空のときは、アプリがモデルファイルで llama-server を起動します）。",
+                "Enter the server URL (when it is empty, the app starts llama-server with the model file)."));
             return;
         }
 
-        LlmTestResult = "接続しています…";
+        SetLlmTestResult(() => Translate.Text("接続しています…", "Connecting…"));
         try
         {
-            LlmTestResult = await _llmTester.TestAsync(EndpointText, CancellationToken.None);
+            var result = await _llmTester.TestAsync(EndpointText, CancellationToken.None);
+            SetLlmTestResult(() => result);
         }
         catch (LlmStartException ex)
         {
-            LlmTestResult = ex.Message;
+            SetLlmTestResult(() => ex.Message);
         }
     }
 
@@ -340,7 +431,9 @@ public sealed class GeneralTabViewModel : EditableObject
     private void RemoveAccount()
     {
         if (SelectedAccount is { } account && _dialogs.Confirm(
-                $"アカウント「{account.Id}」を削除しますか？\nこのアカウントの振り分け先の設定も消えます。保存後、再起動すると反映されます。"))
+                Translate.Text(
+                    $"アカウント「{account.Id}」を削除しますか？\nこのアカウントの振り分け先の設定も消えます。保存後、再起動すると反映されます。",
+                    $"Delete the account \"{account.Id}\"?\nIts destination folder settings are deleted too. This takes effect after you save and restart.")))
         {
             Accounts.Remove(account);
             SelectedAccount = Accounts.FirstOrDefault();
@@ -359,7 +452,7 @@ public sealed class GeneralTabViewModel : EditableObject
         {
             _credentials.WriteSecret(key, account.User, password);
             account.RefreshPasswordStatus();
-            account.TestResult = $"パスワードを資格情報マネージャー（{key}）に登録しました。";
+            account.TestResult = Translate.Text($"パスワードを資格情報マネージャー（{key}）に登録しました。", $"Registered the password in Credential Manager ({key}).");
         }
     }
 
@@ -370,7 +463,7 @@ public sealed class GeneralTabViewModel : EditableObject
             return;
         }
 
-        account.TestResult = "接続しています…";
+        account.TestResult = Translate.Text("接続しています…", "Connecting…");
         try
         {
             account.TestResult = await _tester.TestAsync(account.ToConfig(), CancellationToken.None);

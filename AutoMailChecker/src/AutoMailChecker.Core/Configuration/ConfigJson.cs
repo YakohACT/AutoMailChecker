@@ -13,7 +13,7 @@ public static class ConfigJson
     /// <summary>JSON として読めなければ <see cref="JsonException"/> を投げる。</summary>
     public static AppConfig Deserialize(string json) =>
         JsonSerializer.Deserialize<AppConfig>(json, Options)
-        ?? throw new JsonException("設定ファイルの中身が空です。");
+        ?? throw new JsonException(Translate.Text("設定ファイルの中身が空です。", "The settings file is empty."));
 
     /// <summary>画面から保存するときに使う。コメントは残らない。</summary>
     public static string Serialize(AppConfig config) =>

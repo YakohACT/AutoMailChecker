@@ -23,12 +23,18 @@ public static partial class ConfigValidator
         ValidatePolicy(config.Policy, issues);
         if (config.Trial.MaxMessages is < 1)
         {
-            Add(issues, ConfigSection.Trial, "trial.maxMessages", $"1 以上の数字か、null（上限なし）を指定してください（現在 {config.Trial.MaxMessages}）。");
+            Add(issues, ConfigSection.Trial, "trial.maxMessages", Translate.Text(
+                $"1 以上の数字か、null（上限なし）を指定してください（現在 {config.Trial.MaxMessages}）。",
+                $"Specify a number of 1 or more, or null for no limit (currently {config.Trial.MaxMessages})."));
         }
 
         ValidateRange(issues, ConfigSection.History, "history.retentionDays", config.History.RetentionDays, 7, 365);
         ValidateLlm(config.Llm, issues);
         ValidatePause(config.Pause, issues);
+        if (!Enum.IsDefined(config.Ui.Language))
+        {
+            Add(issues, ConfigSection.Ui, "ui.language", Translate.Text("ja か en を指定してください。", "Specify ja or en."));
+        }
         return issues;
     }
 
@@ -42,11 +48,15 @@ public static partial class ConfigValidator
             var path = $"accounts[{i}]";
             if (!AccountIdPattern().IsMatch(a.Id))
             {
-                Add(issues, ConfigSection.Accounts, $"{path}.id", "アカウント ID は英数字とハイフンだけで指定してください。");
+                Add(issues, ConfigSection.Accounts, $"{path}.id", Translate.Text(
+                    "アカウント ID は英数字とハイフンだけで指定してください。",
+                    "Use only letters, digits and hyphens for the account ID."));
             }
             else if (!idsIgnoreCase.Add(a.Id))
             {
-                Add(issues, ConfigSection.Accounts, $"{path}.id", $"アカウント ID「{a.Id}」が重複しています。");
+                Add(issues, ConfigSection.Accounts, $"{path}.id", Translate.Text(
+                    $"アカウント ID「{a.Id}」が重複しています。",
+                    $"The account ID \"{a.Id}\" is used more than once."));
             }
             else
             {
@@ -55,24 +65,28 @@ public static partial class ConfigValidator
 
             if (string.IsNullOrWhiteSpace(a.Host))
             {
-                Add(issues, ConfigSection.Accounts, $"{path}.host", "IMAP サーバーを指定してください。");
+                Add(issues, ConfigSection.Accounts, $"{path}.host", Translate.Text("IMAP サーバーを指定してください。", "Specify the IMAP server."));
             }
 
             ValidateRange(issues, ConfigSection.Accounts, $"{path}.port", a.Port, 1, 65535);
 
             if (string.IsNullOrWhiteSpace(a.User))
             {
-                Add(issues, ConfigSection.Accounts, $"{path}.user", "ログイン名を指定してください。");
+                Add(issues, ConfigSection.Accounts, $"{path}.user", Translate.Text("ログイン名を指定してください。", "Specify the user name."));
             }
 
             if (a.Auth != AuthMethod.AppPassword)
             {
-                Add(issues, ConfigSection.Accounts, $"{path}.auth", "現在はアプリ用パスワード（appPassword）だけに対応しています。");
+                Add(issues, ConfigSection.Accounts, $"{path}.auth", Translate.Text(
+                    "現在はアプリ用パスワード（appPassword）だけに対応しています。",
+                    "Only app passwords (appPassword) are supported at the moment."));
             }
 
             if (a.WatchFolders.Count == 0 || a.WatchFolders.Any(string.IsNullOrWhiteSpace))
             {
-                Add(issues, ConfigSection.Accounts, $"{path}.watchFolders", "監視するフォルダーを1つ以上指定してください。");
+                Add(issues, ConfigSection.Accounts, $"{path}.watchFolders", Translate.Text(
+                    "監視するフォルダーを1つ以上指定してください。",
+                    "Specify at least one folder to watch."));
             }
         }
 
@@ -88,7 +102,9 @@ public static partial class ConfigValidator
             if (at < 0 || at == s.Length - 1 || s.IndexOf('@', at + 1) >= 0 || s.Any(char.IsWhiteSpace))
             {
                 Add(issues, ConfigSection.IgnoreSenders, $"ignoreSenders[{i}]",
-                    "「a@example.com」（完全一致）か「@example.com」（ドメイン一致）の形で指定してください。");
+                    Translate.Text(
+                        "「a@example.com」（完全一致）か「@example.com」（ドメイン一致）の形で指定してください。",
+                        "Use the form \"a@example.com\" (exact match) or \"@example.com\" (domain match)."));
             }
         }
     }
@@ -106,36 +122,50 @@ public static partial class ConfigValidator
 
             if (!ItemIdPattern().IsMatch(id))
             {
-                Add(issues, ConfigSection.Items, $"{path}.id", "項目 ID は英数字・ハイフン・アンダースコアだけで指定してください。");
+                Add(issues, ConfigSection.Items, $"{path}.id", Translate.Text(
+                    "項目 ID は英数字・ハイフン・アンダースコアだけで指定してください。",
+                    "Use only letters, digits, hyphens and underscores for the item ID."));
             }
             else if (string.Equals(id, ItemId.AdvertisementReserved, StringComparison.OrdinalIgnoreCase))
             {
-                Add(issues, ConfigSection.Items, $"{path}.id", $"「{ItemId.AdvertisementReserved}」は予約 ID なので使えません。");
+                Add(issues, ConfigSection.Items, $"{path}.id", Translate.Text(
+                    $"「{ItemId.AdvertisementReserved}」は予約 ID なので使えません。",
+                    $"\"{ItemId.AdvertisementReserved}\" is a reserved ID and cannot be used."));
             }
             else if (!ids.Add(id))
             {
-                Add(issues, ConfigSection.Items, $"{path}.id", $"項目 ID「{id}」が重複しています。");
+                Add(issues, ConfigSection.Items, $"{path}.id", Translate.Text(
+                    $"項目 ID「{id}」が重複しています。",
+                    $"The item ID \"{id}\" is used more than once."));
             }
 
             var label = item.Label?.Trim() ?? "";
             if (label.Length is 0 or > LabelMaxLength)
             {
-                Add(issues, ConfigSection.Items, $"{path}.label", $"表示名は1〜{LabelMaxLength}文字で指定してください。");
+                Add(issues, ConfigSection.Items, $"{path}.label", Translate.Text(
+                    $"表示名は1〜{LabelMaxLength}文字で指定してください。",
+                    $"The display name must be 1 to {LabelMaxLength} characters."));
             }
             else if (!labels.Add(label))
             {
-                Add(issues, ConfigSection.Items, $"{path}.label", $"表示名「{label}」が重複しています。");
+                Add(issues, ConfigSection.Items, $"{path}.label", Translate.Text(
+                    $"表示名「{label}」が重複しています。",
+                    $"The display name \"{label}\" is used more than once."));
             }
 
             var description = item.Description?.Trim() ?? "";
             if (description.Length is 0 or > DescriptionMaxLength)
             {
-                Add(issues, ConfigSection.Items, $"{path}.description", $"AI への説明は1〜{DescriptionMaxLength}文字で指定してください。");
+                Add(issues, ConfigSection.Items, $"{path}.description", Translate.Text(
+                    $"AI への説明は1〜{DescriptionMaxLength}文字で指定してください。",
+                    $"The description for the AI must be 1 to {DescriptionMaxLength} characters."));
             }
 
             if (!priorities.Add(item.Priority))
             {
-                Add(issues, ConfigSection.Items, $"{path}.priority", $"優先度 {item.Priority} が重複しています。");
+                Add(issues, ConfigSection.Items, $"{path}.priority", Translate.Text(
+                    $"優先度 {item.Priority} が重複しています。",
+                    $"Priority {item.Priority} is used more than once."));
             }
 
             ValidateExamples(issues, $"{path}.examples", item.Examples);
@@ -148,7 +178,7 @@ public static partial class ConfigValidator
     {
         if (examples.Count > ExamplesMaxCount)
         {
-            Add(issues, ConfigSection.Items, path, $"例は{ExamplesMaxCount}件までです。");
+            Add(issues, ConfigSection.Items, path, Translate.Text($"例は{ExamplesMaxCount}件までです。", $"Up to {ExamplesMaxCount} examples are allowed."));
         }
 
         for (var i = 0; i < examples.Count; i++)
@@ -156,7 +186,9 @@ public static partial class ConfigValidator
             var e = examples[i]?.Trim() ?? "";
             if (e.Length is 0 or > ExampleMaxLength)
             {
-                Add(issues, ConfigSection.Items, $"{path}[{i}]", $"例は1件あたり1〜{ExampleMaxLength}文字で指定してください。");
+                Add(issues, ConfigSection.Items, $"{path}[{i}]", Translate.Text(
+                    $"例は1件あたり1〜{ExampleMaxLength}文字で指定してください。",
+                    $"Each example must be 1 to {ExampleMaxLength} characters."));
             }
         }
     }
@@ -169,11 +201,13 @@ public static partial class ConfigValidator
         {
             if (!accountIds.Contains(accountId))
             {
-                Add(issues, section, $"{path}.{accountId}", $"アカウント「{accountId}」は accounts にありません。振り分け先にはそのアカウント自身のフォルダーだけを指定できます。");
+                Add(issues, section, $"{path}.{accountId}", Translate.Text(
+                    $"アカウント「{accountId}」は accounts にありません。振り分け先にはそのアカウント自身のフォルダーだけを指定できます。",
+                    $"The account \"{accountId}\" is not in accounts. A destination can only be a folder of that account itself."));
             }
             else if (!string.IsNullOrWhiteSpace(folder) && AppInfo.IsInbox(folder.Trim()))
             {
-                Add(issues, section, $"{path}.{accountId}", "受信トレイは振り分け先に指定できません。");
+                Add(issues, section, $"{path}.{accountId}", Translate.Text("受信トレイは振り分け先に指定できません。", "The inbox cannot be a destination."));
             }
         }
     }
@@ -201,7 +235,9 @@ public static partial class ConfigValidator
 
                 if (byFolder.TryGetValue(folder, out var firstOwner))
                 {
-                    Add(issues, section, $"{path}.{accountId}", $"フォルダー「{folder}」は {firstOwner} でも使われています。");
+                    Add(issues, section, $"{path}.{accountId}", Translate.Text(
+                        $"フォルダー「{folder}」は {firstOwner} でも使われています。",
+                        $"The folder \"{folder}\" is also used by {firstOwner}."));
                 }
                 else
                 {
@@ -213,7 +249,7 @@ public static partial class ConfigValidator
         for (var i = 0; i < config.Items.Count; i++)
         {
             var item = config.Items[i];
-            Check(ConfigSection.Items, $"items[{i}].folders", $"項目「{item.Label}」", item.Folders);
+            Check(ConfigSection.Items, $"items[{i}].folders", Translate.Text($"項目「{item.Label}」", $"the item \"{item.Label}\""), item.Folders);
         }
     }
 
@@ -221,7 +257,7 @@ public static partial class ConfigValidator
     {
         if (policy.MinConfidence is not (Confidence.High or Confidence.Medium))
         {
-            Add(issues, ConfigSection.Policy, "policy.minConfidence", "high か medium を指定してください。");
+            Add(issues, ConfigSection.Policy, "policy.minConfidence", Translate.Text("high か medium を指定してください。", "Specify high or medium."));
         }
     }
 
@@ -239,12 +275,16 @@ public static partial class ConfigValidator
         {
             if (string.IsNullOrWhiteSpace(llm.ServerExe))
             {
-                Add(issues, ConfigSection.Llm, "llm.serverExe", "接続先 URL を使わないときは、llama-server.exe の場所を指定してください。");
+                Add(issues, ConfigSection.Llm, "llm.serverExe", Translate.Text(
+                    "接続先 URL を使わないときは、llama-server.exe の場所を指定してください。",
+                    "When no server URL is set, specify the location of llama-server.exe."));
             }
 
             if (string.IsNullOrWhiteSpace(llm.Model))
             {
-                Add(issues, ConfigSection.Llm, "llm.model", "接続先 URL を使わないときは、モデルファイルを指定してください。");
+                Add(issues, ConfigSection.Llm, "llm.model", Translate.Text(
+                    "接続先 URL を使わないときは、モデルファイルを指定してください。",
+                    "When no server URL is set, specify the model file."));
             }
         }
 
@@ -265,7 +305,9 @@ public static partial class ConfigValidator
             if (IsForbiddenLlmArg(llm.ExtraArgs[i]))
             {
                 Add(issues, ConfigSection.Llm, $"llm.extraArgs[{i}]",
-                    $"「{llm.ExtraArgs[i]}」は指定できません（待ち受け先・API キー・Web UI・ツール実行・モデルはアプリが決めます）。");
+                    Translate.Text(
+                        $"「{llm.ExtraArgs[i]}」は指定できません（待ち受け先・API キー・Web UI・ツール実行・モデルはアプリが決めます）。",
+                        $"\"{llm.ExtraArgs[i]}\" cannot be specified (the app decides the listen address, API key, Web UI, tool execution and model)."));
             }
         }
     }
@@ -307,23 +349,25 @@ public static partial class ConfigValidator
             var path = $"pause.apps[{i}]";
             if (string.IsNullOrWhiteSpace(rule.Name))
             {
-                Add(issues, ConfigSection.Pause, $"{path}.name", "名前を指定してください。");
+                Add(issues, ConfigSection.Pause, $"{path}.name", Translate.Text("名前を指定してください。", "Specify a name."));
             }
 
             var hasExe = rule.Exe.Count > 0;
             if (hasExe && rule.Exe.Any(string.IsNullOrWhiteSpace))
             {
-                Add(issues, ConfigSection.Pause, $"{path}.exe", "実行ファイル名に空の値があります。");
+                Add(issues, ConfigSection.Pause, $"{path}.exe", Translate.Text("実行ファイル名に空の値があります。", "One of the executable names is empty."));
             }
 
             if (!hasExe && string.IsNullOrWhiteSpace(rule.TitleContains))
             {
-                Add(issues, ConfigSection.Pause, path, "実行ファイル名かウィンドウタイトルのどちらかを指定してください。");
+                Add(issues, ConfigSection.Pause, path, Translate.Text(
+                    "実行ファイル名かウィンドウタイトルのどちらかを指定してください。",
+                    "Specify an executable name or a window title."));
             }
 
             if (!Enum.IsDefined(rule.Mode))
             {
-                Add(issues, ConfigSection.Pause, $"{path}.mode", "stop か lowLoad を指定してください。");
+                Add(issues, ConfigSection.Pause, $"{path}.mode", Translate.Text("stop か lowLoad を指定してください。", "Specify stop or lowLoad."));
             }
         }
     }
@@ -332,7 +376,9 @@ public static partial class ConfigValidator
     {
         if (value < min || value > max)
         {
-            Add(issues, section, path, $"{min}〜{max} の範囲で指定してください（現在 {value}）。");
+            Add(issues, section, path, Translate.Text(
+                $"{min}〜{max} の範囲で指定してください（現在 {value}）。",
+                $"Specify a value from {min} to {max} (currently {value})."));
         }
     }
 

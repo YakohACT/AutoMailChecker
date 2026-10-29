@@ -19,11 +19,15 @@ public sealed class ImapConnectionTester(ImapConnector connector) : IMailConnect
             }
 
             await client.Inbox.OpenAsync(MailKit.FolderAccess.ReadOnly, ct).ConfigureAwait(false);
-            return $"接続できました（受信トレイ {client.Inbox.Count} 通、フォルダー {folders} 個）。";
+            return Translate.Text(
+                $"接続できました（受信トレイ {client.Inbox.Count} 通、フォルダー {folders} 個）。",
+                $"Connected (inbox: {client.Inbox.Count} mails, folders: {folders}).");
         }
         catch (Exception ex) when (ImapConnector.IsConnectionFailure(ex))
         {
-            throw new MailServerException(account.Id, $"接続のあとで通信が切れました: {ex.Message}", isAuthenticationFailure: false, ex);
+            throw new MailServerException(account.Id, Translate.Text(
+                $"接続のあとで通信が切れました: {ex.Message}",
+                $"The connection dropped right after connecting: {ex.Message}"), isAuthenticationFailure: false, ex);
         }
         finally
         {

@@ -1,7 +1,8 @@
 <Window x:Class="AutoMailChecker.Windows.Settings.RunningAppsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="実行中のアプリから選ぶ - AutoMailChecker"
+        xmlns:l="clr-namespace:AutoMailChecker.Windows.Ui"
+        Title="{l:Translate '実行中のアプリから選ぶ - AutoMailChecker', 'Pick a running app - AutoMailChecker'}"
         Width="760" Height="520"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         FontSize="13">
@@ -14,16 +15,16 @@
     </Window.Resources>
 
     <DockPanel Margin="16">
-        <TextBlock DockPanel.Dock="Top" Text="停止対象にするアプリを選んでください（実行ファイル名で判定します）。" Margin="0,0,0,8" />
+        <TextBlock DockPanel.Dock="Top" Text="{l:Translate '停止対象にするアプリを選んでください（実行ファイル名で判定します）。', 'Choose the app to pause for (it is matched by its executable name).'}" Margin="0,0,0,8" />
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-            <Button Content="追加" Click="OnOkClick" IsDefault="True" />
-            <Button Content="キャンセル" IsCancel="True" Margin="0" />
+            <Button Content="{l:Translate '追加', 'Add'}" Click="OnOkClick" IsDefault="True" />
+            <Button Content="{l:Translate 'キャンセル', 'Cancel'}" IsCancel="True" Margin="0" />
         </StackPanel>
         <ListView x:Name="ProcessList" MouseDoubleClick="OnOkClick">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="実行ファイル名" DisplayMemberBinding="{Binding ExeName}" Width="200" />
-                    <GridViewColumn Header="場所" DisplayMemberBinding="{Binding Path}" Width="500" />
+                    <GridViewColumn Header="{l:Translate '実行ファイル名', 'Executable'}" DisplayMemberBinding="{Binding ExeName}" Width="200" />
+                    <GridViewColumn Header="{l:Translate '場所', 'Location'}" DisplayMemberBinding="{Binding Path}" Width="500" />
                 </GridView>
             </ListView.View>
         </ListView>

@@ -19,6 +19,7 @@ public sealed record AppConfig
     public HistoryConfig History { get; init; } = new();
     public LlmConfig Llm { get; init; } = new();
     public PauseConfig Pause { get; init; } = new();
+    public UiConfig Ui { get; init; } = new();
 
     public AccountConfig? FindAccount(string accountId) =>
         Accounts.FirstOrDefault(a => a.Id == accountId);
@@ -127,6 +128,13 @@ public enum PauseAction
     Stop,
     /// <summary>低負荷で継続</summary>
     LowLoad,
+}
+
+/// <summary>画面の表示。</summary>
+public sealed record UiConfig
+{
+    /// <summary>画面の言語（ja / en）。全般タブで選ぶとすぐ切り替わる。</summary>
+    public UiLanguage Language { get; init; } = UiLanguage.Japanese;
 }
 
 public sealed record PauseConfig

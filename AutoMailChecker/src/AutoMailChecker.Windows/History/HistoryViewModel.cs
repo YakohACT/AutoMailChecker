@@ -7,9 +7,13 @@ using AutoMailChecker.Windows.Ui;
 
 namespace AutoMailChecker.Windows.History;
 
-/// <summary>お試しの回の絞り込み。</summary>
-public sealed record TrialFilter(string Label, long? TrialRunId, bool NewMailOnly)
+/// <summary>お試しの回の絞り込み。表示名は読むたびに作る（言語を切り替えたら読み直す）。</summary>
+public sealed class TrialFilter(Func<string> label, long? trialRunId, bool newMailOnly) : ObservableObject
 {
+    public string Label => label();
+    public long? TrialRunId { get; } = trialRunId;
+    public bool NewMailOnly { get; } = newMailOnly;
+
     public override string ToString() => Label;
 }
 
@@ -31,8 +35,8 @@ public sealed class HistoryViewModel : ObservableObject
     private TrialFilter _selectedTrial;
     private HistoryRow? _selectedRow;
     private Choice<string?>? _selectedCorrection;
-    private string _summaryText = "";
-    private string? _detailMessage;
+    private HistorySummary? _summary;
+    private Func<string>? _detailMessage;
     private bool _hasMore;
     private bool _isLoading;
     private int _loadVersion;
@@ -44,21 +48,25 @@ public sealed class HistoryViewModel : ObservableObject
         _undo = undo;
 
         var settings = config.Current;
-        AccountChoices = [new("すべて", null), .. settings.Accounts.Select(a => new Choice<string?>(a.Id, a.Id))];
+        AccountChoices = [new("すべて", "All", null), .. settings.Accounts.Select(a => new Choice<string?>(a.Id, a.Id))];
         CategoryChoices =
         [
-            new("すべて", HistoryCategory.All),
-            new("移動済み", HistoryCategory.Moved),
-            new("移動予定", HistoryCategory.Planned),
-            new("受信トレイに残した", HistoryCategory.Kept),
-            new("失敗", HistoryCategory.Failed),
-            new("戻した", HistoryCategory.Undone),
+            new("すべて", "All", HistoryCategory.All),
+            new("移動済み", "Moved", HistoryCategory.Moved),
+            new("移動予定", "Planned", HistoryCategory.Planned),
+            new("受信トレイに残した", "Kept in inbox", HistoryCategory.Kept),
+            new("失敗", "Failed", HistoryCategory.Failed),
+            new("戻した", "Moved back", HistoryCategory.Undone),
         ];
-        TrialChoices = [new("すべて", null, false), new("新着のみ", null, true)];
+        TrialChoices =
+        [
+            new(() => Translate.Text("すべて", "All"), null, false),
+            new(() => Translate.Text("新着のみ", "New mail only"), null, true),
+        ];
         CorrectionChoices =
         [
             .. settings.Items.OrderBy(i => i.Priority).Select(i => new Choice<string?>(i.Label, i.Id.Value)),
-            new("どの項目でもない", null),
+            new("どの項目でもない", "No item", null),
         ];
 
         _selectedAccount = AccountChoices[0];
@@ -86,7 +94,11 @@ public sealed class HistoryViewModel : ObservableObject
     public Choice<string?> SelectedAccount { get => _selectedAccount; set => SetProperty(ref _selectedAccount, value); }
     public Choice<HistoryCategory> SelectedCategory { get => _selectedCategory; set => SetProperty(ref _selectedCategory, value); }
     public TrialFilter SelectedTrial { get => _selectedTrial; set => SetProperty(ref _selectedTrial, value); }
-    public string SummaryText { get => _summaryText; private set => SetProperty(ref _summaryText, value); }
+    public string SummaryText => _summary is { } s
+        ? Translate.Text(
+            $"表示中 {s.Total} 件　・　移動 {s.Moved}　・　受信トレイに残した {s.Kept}　・　確信度「低」 {s.LowConfidence}",
+            $"Showing {s.Total}  ·  Moved {s.Moved}  ·  Kept in inbox {s.Kept}  ·  Low confidence {s.LowConfidence}")
+        : "";
     public bool HasMore { get => _hasMore; private set => SetProperty(ref _hasMore, value); }
 
     public HistoryRow? SelectedRow
@@ -96,7 +108,7 @@ public sealed class HistoryViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedRow, value))
             {
-                DetailMessage = null;
+                SetDetail(null);
                 SelectedCorrection = null;
                 OnPropertyChanged(nameof(HasSelection));
             }
@@ -111,15 +123,20 @@ public sealed class HistoryViewModel : ObservableObject
         set => SetProperty(ref _selectedCorrection, value);
     }
 
-    public string? DetailMessage { get => _detailMessage; private set => SetProperty(ref _detailMessage, value); }
+    /// <summary>詳細欄の知らせ。文言は読むたびに作る（言語を切り替えたら読み直す）。</summary>
+    public string? DetailMessage => _detailMessage?.Invoke();
 
     /// <summary>画面を開いたとき。お試しの回を指定されたら、その回だけを表示する。</summary>
     public async Task InitializeAsync(long? trialRunId = null)
     {
         foreach (var run in await _store.TrialRuns.ListAsync(CancellationToken.None))
         {
+            var moved = run.Mode == TrialMode.Move;
             TrialChoices.Add(new TrialFilter(
-                $"#{run.Id} {run.PeriodFrom:M/d}〜{run.PeriodTo:M/d}（{(run.Mode == TrialMode.Move ? "移動" : "表示のみ")}）", run.Id, false));
+                () => Translate.Text(
+                    $"#{run.Id} {run.PeriodFrom:M/d}〜{run.PeriodTo:M/d}（{(moved ? "移動" : "表示のみ")}）",
+                    $"#{run.Id} {run.PeriodFrom:M/d}–{run.PeriodTo:M/d} ({(moved ? "moved" : "preview")})"),
+                run.Id, false));
         }
 
         await ShowTrialAsync(trialRunId);
@@ -156,7 +173,8 @@ public sealed class HistoryViewModel : ObservableObject
             return;
         }
 
-        SummaryText = $"表示中 {summary.Total} 件　・　移動 {summary.Moved}　・　受信トレイに残した {summary.Kept}　・　確信度「低」 {summary.LowConfidence}";
+        _summary = summary;
+        OnPropertyChanged(nameof(SummaryText));
         await LoadPageAsync(version);
     }
 
@@ -204,10 +222,10 @@ public sealed class HistoryViewModel : ObservableObject
             return;
         }
 
-        DetailMessage = "受信トレイに戻しています…";
+        SetDetail(() => Translate.Text("受信トレイに戻しています…", "Moving back to the inbox…"));
         var outcome = await _undo.UndoAsync(row.Id, asMisjudgement: true, CancellationToken.None);
         await ReplaceRowAsync(row);
-        DetailMessage = outcome.Message;
+        SetDetail(() => outcome.Message);
     }
 
     private async Task RecordCorrectionAsync()
@@ -219,7 +237,7 @@ public sealed class HistoryViewModel : ObservableObject
 
         await _store.Judgements.AddCorrectionAsync(row.Id, correction.Value, CorrectionSource.Manual, CancellationToken.None);
         await ReplaceRowAsync(row);
-        DetailMessage = $"誤判定として記録しました（本来は「{correction.Label}」）。";
+        SetDetail(() => Translate.Text($"誤判定として記録しました（本来は「{correction.Label}」）。", $"Recorded as misjudged (should be \"{correction.Label}\")."));
     }
 
     /// <summary>操作のあと、その行を読み直して表示を更新する。</summary>
@@ -232,12 +250,18 @@ public sealed class HistoryViewModel : ObservableObject
             return;
         }
 
-        var message = DetailMessage;
+        var message = _detailMessage;
         var replacement = new HistoryRow(updated, _config.Current.Items);
         Rows[index] = replacement;
         SelectedRow = replacement;
-        DetailMessage = message;
+        SetDetail(message);
     }
 
-    private void ShowError(Exception ex) => DetailMessage = $"エラー: {ex.Message}";
+    private void ShowError(Exception ex) => SetDetail(() => Translate.Text($"エラー: {ex.Message}", $"Error: {ex.Message}"));
+
+    private void SetDetail(Func<string>? message)
+    {
+        _detailMessage = message;
+        OnPropertyChanged(nameof(DetailMessage));
+    }
 }

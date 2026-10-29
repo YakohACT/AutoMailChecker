@@ -47,7 +47,7 @@ public sealed class MailWatchService(
         catch (Exception ex)
         {
             _logger.LogCritical(ex, "{Account}: 監視が止まりました。", watcher.AccountId);
-            status.ReportError(watcher.AccountId, "監視が止まりました（ログを確認してください）");
+            status.ReportError(watcher.AccountId, Translate.Text("監視が止まりました（ログを確認してください）", "Watching stopped (see the log)"));
         }
     }
 }

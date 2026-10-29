@@ -32,14 +32,18 @@ public sealed class LlmConnectionTester : ILlmConnectionTester
         }
         catch (Win32Exception ex)
         {
-            throw new LlmStartException($"API キーを資格情報マネージャーから読めません: {ex.Message}", ex);
+            throw new LlmStartException(Translate.Text(
+                $"API キーを資格情報マネージャーから読めません: {ex.Message}",
+                $"Cannot read the API key from Credential Manager: {ex.Message}"), ex);
         }
 
         using var probe = new LlamaProbe(_handlerFactory());
         try
         {
             var model = await probe.ProbeAsync(baseAddress, apiKey, ct).ConfigureAwait(false);
-            return $"接続できました（モデル: {model}{(apiKey is null ? "" : "、API キーあり")}）。";
+            return Translate.Text(
+                $"接続できました（モデル: {model}{(apiKey is null ? "" : "、API キーあり")}）。",
+                $"Connected (model: {model}{(apiKey is null ? "" : ", with API key")}).");
         }
         catch (ProbeException ex)
         {

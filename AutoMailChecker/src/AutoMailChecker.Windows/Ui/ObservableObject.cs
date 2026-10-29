@@ -1,12 +1,21 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 using System.Windows.Input;
+using AutoMailChecker.Core;
 
 namespace AutoMailChecker.Windows.Ui;
 
-/// <summary>画面に値の変化を知らせる ViewModel の基底。</summary>
+/// <summary>画面に値の変化を知らせる ViewModel の基底。言語が変わったら、画面に出している文言を読み直させる。</summary>
 public abstract class ObservableObject : INotifyPropertyChanged
 {
+    protected ObservableObject()
+    {
+        // 弱い参照で受けるので、言語の通知が ViewModel の破棄を妨げない
+        WeakEventManager<TranslateSource, EventArgs>.AddHandler(
+            TranslateSource.Instance, nameof(TranslateSource.LanguageChanged), HandleLanguageChanged);
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -23,6 +32,14 @@ public abstract class ObservableObject : INotifyPropertyChanged
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    /// <summary>
+    /// 言語が変わったとき（画面のスレッド）。既定では、すべてのプロパティを読み直させる（入力中の値はそのまま）。
+    /// 文言をフィールドに持っている ViewModel は、作り直してから base を呼ぶ。
+    /// </summary>
+    protected virtual void OnLanguageChanged() => OnPropertyChanged(string.Empty);
+
+    private void HandleLanguageChanged(object? sender, EventArgs e) => OnLanguageChanged();
 }
 
 /// <summary>
@@ -119,8 +136,28 @@ public sealed class RelayCommand(Action execute, Func<bool>? canExecute = null) 
     public void Execute(object? parameter) => execute();
 }
 
-/// <summary>選択肢（表示名と値）。</summary>
-public sealed record Choice<T>(string Label, T Value)
+/// <summary>選択肢（表示名と値）。表示名は日本語と英語を持てる（言語を切り替えると読み直す）。</summary>
+public sealed class Choice<T> : ObservableObject
 {
+    private readonly string _japanese;
+    private readonly string? _english;
+
+    /// <summary>言語によらない表示名（アカウント ID や項目の表示名など）。</summary>
+    public Choice(string label, T value)
+        : this(label, null, value)
+    {
+    }
+
+    public Choice(string japanese, string? english, T value)
+    {
+        _japanese = japanese;
+        _english = english;
+        Value = value;
+    }
+
+    public string Label => _english is null ? _japanese : Translate.Text(_japanese, _english);
+
+    public T Value { get; }
+
     public override string ToString() => Label;
 }

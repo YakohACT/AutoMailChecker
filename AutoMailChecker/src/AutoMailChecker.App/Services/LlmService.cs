@@ -142,8 +142,8 @@ public sealed class LlmService(
                         : "llama-server を起動できません。{Minutes} 分後にもう一度試します: {Message}",
                     retry.TotalMinutes, ex.Message);
                 status.ReportError(StatusSource, server.IsExternal
-                    ? $"AI サーバーに接続できません（判定保留中）: {ex.Message}"
-                    : $"llama-server を起動できません（判定保留中）: {ex.Message}");
+                    ? Translate.Text($"AI サーバーに接続できません（判定保留中）: {ex.Message}", $"Cannot connect to the AI server (judging on hold): {ex.Message}")
+                    : Translate.Text($"llama-server を起動できません（判定保留中）: {ex.Message}", $"Cannot start llama-server (judging on hold): {ex.Message}"));
                 return retry;
             }
         }
@@ -170,16 +170,16 @@ public sealed class LlmService(
                     : "llama-server が続けて {Crashes} 回終了しました。{Minutes} 分後にもう一度試します。",
                 _crashes, retry.TotalMinutes);
             status.ReportError(StatusSource, server.IsExternal
-                ? "AI サーバーとの接続が切れ続けています（判定保留中）"
-                : "llama-server が終了を繰り返しています（判定保留中）");
+                ? Translate.Text("AI サーバーとの接続が切れ続けています（判定保留中）", "The connection to the AI server keeps dropping (judging on hold)")
+                : Translate.Text("llama-server が終了を繰り返しています（判定保留中）", "llama-server keeps exiting (judging on hold)"));
             _retryAt = time.GetUtcNow() + retry;
             _crashes = 0;
         }
         else
         {
             status.ReportError(StatusSource, server.IsExternal
-                ? "AI サーバーとの接続が切れました（繋ぎ直しています）"
-                : "llama-server が終了しました（起動し直しています）");
+                ? Translate.Text("AI サーバーとの接続が切れました（繋ぎ直しています）", "Lost the connection to the AI server (reconnecting)")
+                : Translate.Text("llama-server が終了しました（起動し直しています）", "llama-server exited (restarting)"));
             _retryAt = time.GetUtcNow() + CrashRestartDelay;
         }
     }

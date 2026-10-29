@@ -20,15 +20,16 @@ public sealed class RejudgeViewModel : ObservableObject
     private readonly IRejudgeService _rejudge;
     private readonly Func<AppConfig> _draft;
     private HistoryRow? _selected;
-    private string? _result;
-    private string? _message;
+    private RejudgeResult? _result;
+    private Func<string>? _message;
 
     public RejudgeViewModel(IStateStore store, IRejudgeService rejudge, Func<AppConfig> draft)
     {
         _store = store;
         _rejudge = rejudge;
         _draft = draft;
-        RunCommand = new AsyncCommand(RunAsync, () => Selected is not null && IsAvailable, ex => Message = $"判定できませんでした: {ex.Message}");
+        RunCommand = new AsyncCommand(RunAsync, () => Selected is not null && IsAvailable,
+            ex => SetMessage(() => Translate.Text($"判定できませんでした: {ex.Message}", $"Could not judge: {ex.Message}")));
     }
 
     public ObservableCollection<HistoryRow> Recent { get; } = [];
@@ -37,12 +38,17 @@ public sealed class RejudgeViewModel : ObservableObject
     public bool IsAvailable => _rejudge.IsAvailable;
 
     public string AvailabilityText => IsAvailable
-        ? "保存前の設定で判定し直し、結果だけを表示します（移動はしません）。"
-        : "完全停止中（llama-server が止まっている間）は試し判定できません。";
+        ? Translate.Text("保存前の設定で判定し直し、結果だけを表示します（移動はしません）。",
+            "The mail is judged again with the unsaved settings and only the result is shown (no mail is moved).")
+        : Translate.Text("完全停止中（llama-server が止まっている間）は試し判定できません。",
+            "Test judgment is not available during a full stop (while the AI is not in use).");
 
     public HistoryRow? Selected { get => _selected; set => SetProperty(ref _selected, value); }
-    public string? Result { get => _result; private set => SetProperty(ref _result, value); }
-    public string? Message { get => _message; private set => SetProperty(ref _message, value); }
+
+    /// <summary>判定の結果（言語を切り替えたら読み直す）。</summary>
+    public string? Result => _result is { } result ? Describe(result) : null;
+
+    public string? Message => _message?.Invoke();
 
     public async Task InitializeAsync()
     {
@@ -62,17 +68,43 @@ public sealed class RejudgeViewModel : ObservableObject
             return;
         }
 
-        Result = null;
-        Message = "判定しています…（1通あたり数十秒かかることがあります）";
+        SetResult(null);
+        SetMessage(() => Translate.Text("判定しています…（1通あたり数十秒かかることがあります）", "Judging… (this can take tens of seconds per mail)"));
         var result = await _rejudge.RejudgeAsync(row.Id, _draft(), CancellationToken.None);
+        SetMessage(null);
+        SetResult(result);
+    }
+
+    private static string Describe(RejudgeResult result)
+    {
         var judgement = result.Judgement;
-        Message = null;
-        Result = string.Join(Environment.NewLine,
-            $"該当項目: {(result.MatchedLabels.Count == 0 ? "なし" : string.Join("、", result.MatchedLabels))}",
-            $"確信度: {judgement.Confidence switch { Confidence.High => "高", Confidence.Medium => "中", _ => "低" }}",
-            $"振り分け先: {result.Destination}",
-            $"要約: {judgement.Summary}",
-            $"判定理由: {judgement.Reason}",
-            $"（判定にかかった時間 {result.Duration.TotalSeconds:0.0} 秒）");
+        var matched = result.MatchedLabels.Count == 0
+            ? Translate.Text("なし", "none")
+            : string.Join(Translate.Text("、", ", "), result.MatchedLabels);
+        var confidence = judgement.Confidence switch
+        {
+            Confidence.High => Translate.Text("高", "High"),
+            Confidence.Medium => Translate.Text("中", "Medium"),
+            _ => Translate.Text("低", "Low"),
+        };
+        return string.Join(Environment.NewLine,
+            Translate.Text($"該当項目: {matched}", $"Matched items: {matched}"),
+            Translate.Text($"確信度: {confidence}", $"Confidence: {confidence}"),
+            Translate.Text($"振り分け先: {result.Destination}", $"Destination: {result.Destination}"),
+            Translate.Text($"要約: {judgement.Summary}", $"Summary: {judgement.Summary}"),
+            Translate.Text($"判定理由: {judgement.Reason}", $"Reason: {judgement.Reason}"),
+            Translate.Text($"（判定にかかった時間 {result.Duration.TotalSeconds:0.0} 秒）", $"(judged in {result.Duration.TotalSeconds:0.0} s)"));
+    }
+
+    private void SetResult(RejudgeResult? result)
+    {
+        _result = result;
+        OnPropertyChanged(nameof(Result));
+    }
+
+    private void SetMessage(Func<string>? message)
+    {
+        _message = message;
+        OnPropertyChanged(nameof(Message));
     }
 }

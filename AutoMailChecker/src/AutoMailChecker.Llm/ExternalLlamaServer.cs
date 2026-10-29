@@ -145,7 +145,9 @@ public sealed class ExternalLlamaServer : ILlmRuntime, ILlamaEndpoint, IDisposab
             catch (ProbeException ex) when (ex.Failure == ProbeFailure.Loading)
             {
                 throw new LlmStartException(
-                    $"{LlamaProbe.Describe(BaseAddress)} のモデルの読み込みが {_timings.LoadingTimeout.TotalSeconds:0} 秒たっても終わりません。", ex);
+                    Translate.Text(
+                        $"{LlamaProbe.Describe(BaseAddress)} のモデルの読み込みが {_timings.LoadingTimeout.TotalSeconds:0} 秒たっても終わりません。",
+                        $"{LlamaProbe.Describe(BaseAddress)} is still loading its model after {_timings.LoadingTimeout.TotalSeconds:0} seconds."), ex);
             }
             catch (ProbeException ex)
             {

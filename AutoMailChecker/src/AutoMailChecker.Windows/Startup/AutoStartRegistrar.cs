@@ -1,8 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Security;
 using System.Security.Principal;
+using System.Security;
 using System.Text;
+using AutoMailChecker.Core;
 
 namespace AutoMailChecker.Windows.Startup;
 
@@ -34,7 +35,9 @@ public sealed class TaskSchedulerAutoStart(string executablePath, string userId)
     }
 
     public static TaskSchedulerAutoStart ForCurrentUser() =>
-        new(Environment.ProcessPath ?? throw new InvalidOperationException("実行ファイルの場所が分かりません。"),
+        new(Environment.ProcessPath ?? throw new InvalidOperationException(Translate.Text(
+            "実行ファイルの場所が分かりません。",
+            "Cannot find where the program is located.")),
             WindowsIdentity.GetCurrent().Name);
 
     public bool IsRegistered() => Run("/Query", "/TN", TaskName).ExitCode == 0;
@@ -49,7 +52,9 @@ public sealed class TaskSchedulerAutoStart(string executablePath, string userId)
             var (exitCode, output) = Run("/Create", "/TN", TaskName, "/XML", xmlPath, "/F");
             if (exitCode != 0)
             {
-                throw new InvalidOperationException($"タスクスケジューラに登録できませんでした: {output.Trim()}");
+                throw new InvalidOperationException(Translate.Text(
+                    $"タスクスケジューラに登録できませんでした: {output.Trim()}",
+                    $"Could not register in Task Scheduler: {output.Trim()}"));
             }
         }
         finally
@@ -63,7 +68,9 @@ public sealed class TaskSchedulerAutoStart(string executablePath, string userId)
         var (exitCode, output) = Run("/Delete", "/TN", TaskName, "/F");
         if (exitCode != 0 && IsRegistered())
         {
-            throw new InvalidOperationException($"タスクスケジューラから削除できませんでした: {output.Trim()}");
+            throw new InvalidOperationException(Translate.Text(
+                $"タスクスケジューラから削除できませんでした: {output.Trim()}",
+                $"Could not remove from Task Scheduler: {output.Trim()}"));
         }
     }
 
@@ -134,13 +141,15 @@ public sealed class TaskSchedulerAutoStart(string executablePath, string userId)
             startInfo.ArgumentList.Add(argument);
         }
 
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("schtasks.exe を起動できませんでした。");
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException(Translate.Text(
+            "schtasks.exe を起動できませんでした。",
+            "Could not start schtasks.exe."));
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         if (!process.WaitForExit(CommandTimeout))
         {
             process.Kill();
-            throw new TimeoutException("schtasks.exe が応答しませんでした。");
+            throw new TimeoutException(Translate.Text("schtasks.exe が応答しませんでした。", "schtasks.exe did not respond."));
         }
 
         return (process.ExitCode, output.Result + error.Result);

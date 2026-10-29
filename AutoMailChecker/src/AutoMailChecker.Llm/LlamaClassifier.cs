@@ -71,7 +71,9 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
                 var (content, finishReason) = await SendAsync(body, ct).ConfigureAwait(false);
                 if (finishReason == "length")
                 {
-                    throw new InvalidResponseException("応答が途中で切れました（最大出力トークン数に達した）。");
+                    throw new InvalidResponseException(Translate.Text(
+                        "応答が途中で切れました（最大出力トークン数に達した）。",
+                        "The response was cut off (the maximum number of output tokens was reached)."));
                 }
 
                 return Parse(content, prepared.SelectableIds);
@@ -83,7 +85,9 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
             }
         }
 
-        throw new ClassificationException($"AI の出力が不正なため判定できませんでした: {lastProblem}");
+        throw new ClassificationException(Translate.Text(
+            $"AI の出力が不正なため判定できませんでした: {lastProblem}",
+            $"Could not judge because the AI output was invalid: {lastProblem}"));
     }
 
     public void Dispose() => _http.Dispose();
@@ -132,7 +136,9 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
 
     private async Task<(string Content, string? FinishReason)> SendAsync(string body, CancellationToken ct)
     {
-        var connection = _endpoint.Connection ?? throw new LlmUnavailableException("AI サーバーの準備ができていません。");
+        var connection = _endpoint.Connection ?? throw new LlmUnavailableException(Translate.Text(
+            "AI サーバーの準備ができていません。",
+            "The AI server is not ready."));
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(_requestTimeout);
@@ -155,24 +161,32 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            throw new InvalidResponseException($"{_requestTimeout.TotalSeconds:0}秒以内に応答がありませんでした。");
+            throw new InvalidResponseException(Translate.Text(
+                $"{_requestTimeout.TotalSeconds:0}秒以内に応答がありませんでした。",
+                $"No response within {_requestTimeout.TotalSeconds:0} seconds."));
         }
         catch (HttpRequestException ex)
         {
-            throw new LlmUnavailableException($"AI サーバーに接続できません: {ex.Message}", ex);
+            throw new LlmUnavailableException(Translate.Text($"AI サーバーに接続できません: {ex.Message}", $"Cannot connect to the AI server: {ex.Message}"), ex);
         }
 
         switch (status)
         {
             case HttpStatusCode.ServiceUnavailable:
-                throw new LlmUnavailableException("AI サーバーはモデルの読み込み中です。");
+                throw new LlmUnavailableException(Translate.Text("AI サーバーはモデルの読み込み中です。", "The AI server is loading its model."));
             case HttpStatusCode.NotFound:
                 // メールのせいではないので判定失敗にはしない
-                throw new LlmUnavailableException("AI サーバーに /v1/chat/completions がありません。接続先 URL を確かめてください。");
+                throw new LlmUnavailableException(Translate.Text(
+                    "AI サーバーに /v1/chat/completions がありません。接続先 URL を確かめてください。",
+                    "The AI server has no /v1/chat/completions. Check the server URL."));
             case HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden:
-                throw new LlmUnavailableException("AI サーバーが API キーを受け付けませんでした（API キーの登録か、同じポートで別のサーバーが動いていないかを確かめてください）。");
+                throw new LlmUnavailableException(Translate.Text(
+                    "AI サーバーが API キーを受け付けませんでした（API キーの登録か、同じポートで別のサーバーが動いていないかを確かめてください）。",
+                    "The AI server rejected the API key (check the registered API key, or whether another server is running on the same port)."));
             case < HttpStatusCode.OK or >= HttpStatusCode.MultipleChoices:
-                throw new InvalidResponseException($"AI サーバーがエラーを返しました（HTTP {(int)status}）: {Shorten(text)}");
+                throw new InvalidResponseException(Translate.Text(
+                    $"AI サーバーがエラーを返しました（HTTP {(int)status}）: {Shorten(text)}",
+                    $"The AI server returned an error (HTTP {(int)status}): {Shorten(text)}"));
         }
 
         try
@@ -187,7 +201,9 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
         {
-            throw new InvalidResponseException($"AI サーバーの応答の形が想定と違います: {ex.Message}");
+            throw new InvalidResponseException(Translate.Text(
+                $"AI サーバーの応答の形が想定と違います: {ex.Message}",
+                $"The AI server response has an unexpected shape: {ex.Message}"));
         }
     }
 
@@ -201,7 +217,7 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
         }
         catch (JsonException ex)
         {
-            throw new InvalidResponseException($"JSON として読めません: {ex.Message}");
+            throw new InvalidResponseException(Translate.Text($"JSON として読めません: {ex.Message}", $"Not valid JSON: {ex.Message}"));
         }
 
         using (document)
@@ -209,14 +225,14 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
             {
-                throw new InvalidResponseException("JSON のオブジェクトではありません。");
+                throw new InvalidResponseException(Translate.Text("JSON のオブジェクトではありません。", "Not a JSON object."));
             }
 
             var matched = new List<ItemId>();
             var itemsElement = Required(root, "matched_items");
             if (itemsElement.ValueKind != JsonValueKind.Array)
             {
-                throw new InvalidResponseException("matched_items が配列ではありません。");
+                throw new InvalidResponseException(Translate.Text("matched_items が配列ではありません。", "matched_items is not an array."));
             }
 
             foreach (var element in itemsElement.EnumerateArray())
@@ -237,13 +253,15 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
                 "high" => Confidence.High,
                 "medium" => Confidence.Medium,
                 "low" => Confidence.Low,
-                var other => throw new InvalidResponseException($"confidence が high / medium / low のどれでもありません: {other}"),
+                var other => throw new InvalidResponseException(Translate.Text(
+                    $"confidence が high / medium / low のどれでもありません: {other}",
+                    $"confidence is not high, medium or low: {other}")),
             };
 
             var summary = Required(root, "summary").GetStringOrNull()
-                ?? throw new InvalidResponseException("summary が文字列ではありません。");
+                ?? throw new InvalidResponseException(Translate.Text("summary が文字列ではありません。", "summary is not a string."));
             var reason = Required(root, "reason").GetStringOrNull()
-                ?? throw new InvalidResponseException("reason が文字列ではありません。");
+                ?? throw new InvalidResponseException(Translate.Text("reason が文字列ではありません。", "reason is not a string."));
 
             return new Judgement(matched, confidence,
                 Truncate(summary.Trim(), SummaryMaxLength), Truncate(reason.Trim(), ReasonMaxLength));
@@ -253,7 +271,7 @@ public sealed class LlamaClassifier : IMailClassifier, IDisposable
     private static JsonElement Required(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value)
             ? value
-            : throw new InvalidResponseException($"必須の属性 {name} がありません。");
+            : throw new InvalidResponseException(Translate.Text($"必須の属性 {name} がありません。", $"The required property {name} is missing."));
 
     private static string Truncate(string value, int maxLength) =>
         value.Length <= maxLength ? value : value[..maxLength];

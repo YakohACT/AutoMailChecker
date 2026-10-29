@@ -34,7 +34,9 @@ public static class ProcessRuleMatcher
                 : null;
             if (store is not null)
             {
-                detections.Add(new PauseDetection($"{store}:{process.Pid}", PauseAction.Stop, $"{store}のゲームを検知（{process.ExeName}）"));
+                detections.Add(new PauseDetection($"{store}:{process.Pid}", PauseAction.Stop, Translate.Text(
+                    $"{store}のゲームを検知（{process.ExeName}）",
+                    $"{store} game detected ({process.ExeName})")));
             }
         }
 
@@ -42,13 +44,13 @@ public static class ProcessRuleMatcher
         {
             if (MatchesRule(rule, processes, windows))
             {
-                detections.Add(new PauseDetection($"app:{rule.Name}", rule.Mode, $"{rule.Name}起動中"));
+                detections.Add(new PauseDetection($"app:{rule.Name}", rule.Mode, Translate.Text($"{rule.Name}起動中", $"{rule.Name} running")));
             }
         }
 
         if (fullscreen)
         {
-            detections.Add(new PauseDetection("fullscreen", PauseAction.Stop, "全画面表示を検知"));
+            detections.Add(new PauseDetection("fullscreen", PauseAction.Stop, Translate.Text("全画面表示を検知", "Full screen detected")));
         }
 
         return detections;

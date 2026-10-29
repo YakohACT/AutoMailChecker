@@ -43,15 +43,15 @@ public sealed class PauseRuleViewModel : EditableObject
 
     public static IReadOnlyList<Choice<RuleMethod>> MethodChoices { get; } =
     [
-        new("実行ファイル名", RuleMethod.Exe),
-        new("ウィンドウタイトル", RuleMethod.Title),
-        new("両方（両方に一致したときだけ）", RuleMethod.Both),
+        new("実行ファイル名", "Executable name", RuleMethod.Exe),
+        new("ウィンドウタイトル", "Window title", RuleMethod.Title),
+        new("両方（両方に一致したときだけ）", "Both (only when both match)", RuleMethod.Both),
     ];
 
     public static IReadOnlyList<Choice<PauseAction>> ActionChoices { get; } =
     [
-        new("完全停止", PauseAction.Stop),
-        new("低負荷で継続", PauseAction.LowLoad),
+        new("完全停止", "Full stop", PauseAction.Stop),
+        new("低負荷で継続", "Continue at low load", PauseAction.LowLoad),
     ];
 
     public bool Enabled { get => _enabled; set { if (SetProperty(ref _enabled, value)) OnPropertyChanged(nameof(Summary)); } }
@@ -90,11 +90,12 @@ public sealed class PauseRuleViewModel : EditableObject
             var target = Method switch
             {
                 RuleMethod.Exe => ExeText,
-                RuleMethod.Title => $"タイトル「{TitleText}」",
-                _ => $"{ExeText} ＋ タイトル「{TitleText}」",
+                RuleMethod.Title => Translate.Text($"タイトル「{TitleText}」", $"title \"{TitleText}\""),
+                _ => Translate.Text($"{ExeText} ＋ タイトル「{TitleText}」", $"{ExeText} + title \"{TitleText}\""),
             };
-            var action = Action == PauseAction.Stop ? "完全停止" : "低負荷で継続";
-            return $"{(Enabled ? "" : "（無効）")}{Name}: {target} → {action}";
+            var action = Action == PauseAction.Stop ? Translate.Text("完全停止", "full stop") : Translate.Text("低負荷で継続", "low load");
+            var off = Enabled ? "" : Translate.Text("（無効）", "(off) ");
+            return $"{off}{Name}: {target} → {action}";
         }
     }
 
@@ -109,7 +110,11 @@ public sealed class PauseRuleViewModel : EditableObject
 }
 
 /// <summary>固定ルール（Steam・Epic・DMM）。表示だけで、削除・無効化・動作の変更はできない。</summary>
-public sealed record FixedRuleRow(string Name, string Target);
+public sealed class FixedRuleRow(string nameJa, string nameEn, string targetJa, string targetEn) : ObservableObject
+{
+    public string Name => Translate.Text(nameJa, nameEn);
+    public string Target => Translate.Text(targetJa, targetEn);
+}
 
 /// <summary>
 /// 設定ウィンドウの「停止対象」タブ（画面設計 SC-03）。上に現在の検知、その下に固定ルールと指定ルールの一覧。
@@ -138,7 +143,8 @@ public sealed class PauseTabViewModel : EditableObject
 
         AddRunningCommand = new RelayCommand(AddRunning);
         AddExeCommand = new RelayCommand(AddExe);
-        AddManualCommand = new RelayCommand(() => AddRule(new PauseAppRule { Name = "新しい停止対象", Exe = ["example.exe"] }));
+        AddManualCommand = new RelayCommand(() =>
+            AddRule(new PauseAppRule { Name = Translate.Text("新しい停止対象", "New pause rule"), Exe = ["example.exe"] }));
         DeleteCommand = new RelayCommand(Delete, () => SelectedRule is not null);
         BrowseDmmCommand = new RelayCommand(() =>
         {
@@ -152,9 +158,15 @@ public sealed class PauseTabViewModel : EditableObject
 
     public IReadOnlyList<FixedRuleRow> FixedRules { get; } =
     [
-        new("Steamのゲーム", @"Steam ライブラリの steamapps\common の配下（libraryfolders.vdf から読む）"),
-        new("Epic Gamesのゲーム", "Epic のゲームのインストール先の配下（マニフェストから読む。ランチャー本体は除く）"),
-        new("DMM GAME PLAYERのゲーム", "下で指定したインストール先フォルダーの配下（ランチャー本体は除く）"),
+        new("Steamのゲーム", "Steam games",
+            @"Steam ライブラリの steamapps\common の配下（libraryfolders.vdf から読む）",
+            @"Under steamapps\common of each Steam library (read from libraryfolders.vdf)"),
+        new("Epic Gamesのゲーム", "Epic Games games",
+            "Epic のゲームのインストール先の配下（マニフェストから読む。ランチャー本体は除く）",
+            "Under the install folders of Epic games (read from the manifests; the launcher itself is excluded)"),
+        new("DMM GAME PLAYERのゲーム", "DMM GAME PLAYER games",
+            "下で指定したインストール先フォルダーの配下（ランチャー本体は除く）",
+            "Under the install folder set below (the launcher itself is excluded)"),
     ];
 
     public ObservableCollection<PauseRuleViewModel> Rules { get; }
@@ -192,7 +204,15 @@ public sealed class PauseTabViewModel : EditableObject
     public void RefreshDetection()
     {
         var detections = _runModes.CurrentDetections;
-        CurrentDetection = "現在の検知: " + (detections.Count == 0 ? "なし" : string.Join("、", detections.Select(d => d.Description)));
+        CurrentDetection = Translate.Text("現在の検知: ", "Currently detected: ") + (detections.Count == 0
+            ? Translate.Text("なし", "none")
+            : string.Join(Translate.Text("、", ", "), detections.Select(d => d.Description)));
+    }
+
+    protected override void OnLanguageChanged()
+    {
+        RefreshDetection();
+        base.OnLanguageChanged();
     }
 
     public IReadOnlyList<PauseAppRule> BuildRules() => Rules.Select(r => r.ToRule()).ToList();
@@ -237,7 +257,8 @@ public sealed class PauseTabViewModel : EditableObject
 
     private void Delete()
     {
-        if (SelectedRule is { } rule && _dialogs.Confirm($"停止対象「{rule.Name}」を削除しますか？"))
+        if (SelectedRule is { } rule && _dialogs.Confirm(Translate.Text(
+                $"停止対象「{rule.Name}」を削除しますか？", $"Delete the pause rule \"{rule.Name}\"?")))
         {
             var index = Rules.IndexOf(rule);
             Rules.Remove(rule);

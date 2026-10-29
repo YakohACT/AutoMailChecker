@@ -24,8 +24,12 @@ public static class ConfigLoader
         }
         catch (JsonException ex)
         {
-            var where = ex.LineNumber is { } line ? $"{line + 1}行目付近" : "位置不明";
-            return new ConfigLoadResult(fallback, [new ConfigIssue(ConfigSection.File, "", $"設定ファイルを読めません（{where}）: {ex.Message}")]);
+            var where = ex.LineNumber is { } line ? Translate.Text(
+                $"{line + 1}行目付近",
+                $"near line {line + 1}") : Translate.Text("位置不明", "position unknown");
+            return new ConfigLoadResult(fallback, [new ConfigIssue(ConfigSection.File, "", Translate.Text(
+                $"設定ファイルを読めません（{where}）: {ex.Message}",
+                $"Cannot read the settings file ({where}): {ex.Message}"))]);
         }
 
         var issues = ConfigValidator.Validate(parsed);
@@ -62,6 +66,7 @@ public static class ConfigLoader
             History = sections.Contains(ConfigSection.History) ? fallback.History : config.History,
             Llm = sections.Contains(ConfigSection.Llm) ? fallback.Llm : config.Llm,
             Pause = sections.Contains(ConfigSection.Pause) ? fallback.Pause : config.Pause,
+            Ui = sections.Contains(ConfigSection.Ui) ? fallback.Ui : config.Ui,
         };
     }
 }

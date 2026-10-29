@@ -1,12 +1,13 @@
 <Window x:Class="AutoMailChecker.Windows.Settings.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:AutoMailChecker.Windows.Ui"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoMailChecker.Windows.Settings"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=local:SettingsViewModel}"
-        Title="設定 - AutoMailChecker"
+        Title="{l:Translate '設定 - AutoMailChecker', 'Settings - AutoMailChecker'}"
         Width="1000" Height="760" MinWidth="820" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         FontSize="13">
@@ -25,7 +26,7 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding AccountId}" VerticalAlignment="Center" />
                     <ComboBox Grid.Column="1" Style="{StaticResource FolderComboBox}" ItemsSource="{Binding Suggestions}"
-                              Text="{Binding Folder, UpdateSourceTrigger=PropertyChanged}" ToolTip="空にすると未設定（このアカウントでは移動しない）" />
+                              Text="{Binding Folder, UpdateSourceTrigger=PropertyChanged}" ToolTip="{l:Translate '空にすると未設定（このアカウントでは移動しない）', 'Leave empty for no destination (mail is not moved for this account)'}" />
                 </Grid>
             </DataTemplate>
         </ResourceDictionary>
@@ -36,8 +37,8 @@
         <Border DockPanel.Dock="Bottom" Style="{StaticResource Panel}" Margin="0,12,0,0" Padding="12,8">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom">
-                    <Button Content="保存" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="100" />
-                    <Button Content="閉じる" Click="OnCloseClick" IsCancel="True" Margin="0" />
+                    <Button Content="{l:Translate '保存', 'Save'}" Command="{Binding SaveCommand}" IsDefault="True" MinWidth="100" />
+                    <Button Content="{l:Translate '閉じる', 'Close'}" Click="OnCloseClick" IsCancel="True" Margin="0" />
                 </StackPanel>
                 <StackPanel>
                     <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" FontWeight="SemiBold">
@@ -72,7 +73,7 @@
 
         <TabControl SelectedIndex="{Binding SelectedTabIndex}" Padding="12">
             <!-- 項目（SC-02） -->
-            <TabItem Header="項目" DataContext="{Binding ItemsTab}">
+            <TabItem Header="{l:Translate '項目', 'Items'}" DataContext="{Binding ItemsTab}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="250" />
@@ -81,12 +82,12 @@
                     </Grid.ColumnDefinitions>
 
                     <DockPanel Grid.Column="0">
-                        <TextBlock DockPanel.Dock="Top" Text="上にあるほど優先されます（ドラッグで並べ替え）" Style="{StaticResource Hint}" Margin="0,0,0,6" />
+                        <TextBlock DockPanel.Dock="Top" Text="{l:Translate '上にあるほど優先されます（ドラッグで並べ替え）', 'Items higher in the list take priority (drag to reorder)'}" Style="{StaticResource Hint}" Margin="0,0,0,6" />
                         <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                            <Button Content="追加" Command="{Binding AddCommand}" MinWidth="56" Margin="0,0,6,6" />
-                            <Button Content="削除" Command="{Binding DeleteCommand}" MinWidth="56" Margin="0,0,6,6" />
-                            <Button Content="↑" Command="{Binding MoveUpCommand}" MinWidth="36" Margin="0,0,6,6" ToolTip="優先度を上げる" />
-                            <Button Content="↓" Command="{Binding MoveDownCommand}" MinWidth="36" Margin="0,0,0,6" ToolTip="優先度を下げる" />
+                            <Button Content="{l:Translate '追加', 'Add'}" Command="{Binding AddCommand}" MinWidth="56" Margin="0,0,6,6" />
+                            <Button Content="{l:Translate '削除', 'Delete'}" Command="{Binding DeleteCommand}" MinWidth="56" Margin="0,0,6,6" />
+                            <Button Content="↑" Command="{Binding MoveUpCommand}" MinWidth="36" Margin="0,0,6,6" ToolTip="{l:Translate '優先度を上げる', 'Raise priority'}" />
+                            <Button Content="↓" Command="{Binding MoveDownCommand}" MinWidth="36" Margin="0,0,0,6" ToolTip="{l:Translate '優先度を下げる', 'Lower priority'}" />
                         </WrapPanel>
                         <ListBox x:Name="ItemsList" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
                                  DisplayMemberPath="ListText" AllowDrop="True"
@@ -97,13 +98,13 @@
                         <StackPanel Margin="0,0,8,0">
                             <StackPanel DataContext="{Binding SelectedItem}"
                                         Visibility="{Binding DataContext.HasSelection, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource BoolToVisibility}}">
-                                <CheckBox Content="有効（無効にすると AI の選択肢から外れ、設定内容は残ります）" IsChecked="{Binding Enabled}" />
+                                <CheckBox Content="{l:Translate '有効（無効にすると AI の選択肢から外れ、設定内容は残ります）', 'Enabled (when off, the AI no longer picks this item; its settings are kept)'}" IsChecked="{Binding Enabled}" />
 
-                                <TextBlock Text="表示名（1〜20文字）" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate '表示名（1〜20文字）', 'Display name (1 to 20 characters)'}" Style="{StaticResource FieldTitle}" />
                                 <TextBox Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}" MaxLength="20" Width="260"
                                          HorizontalAlignment="Left" Margin="0,0,0,14" />
 
-                                <TextBlock Text="AI への説明（1〜200文字）" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate 'AI への説明（1〜200文字）', 'Description for the AI (1 to 200 characters)'}" Style="{StaticResource FieldTitle}" />
                                 <TextBox Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" MaxLength="200"
                                          TextWrapping="Wrap" AcceptsReturn="False" Height="52" VerticalContentAlignment="Top" Margin="0,0,0,14" />
 
@@ -114,26 +115,26 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
-                                        <TextBlock Text="当てはまる例（1行に1例、3行まで）" Style="{StaticResource FieldTitle}" />
+                                        <TextBlock Text="{l:Translate '当てはまる例（1行に1例、3行まで）', 'Matching examples (one per line, up to 3)'}" Style="{StaticResource FieldTitle}" />
                                         <TextBox Text="{Binding ExamplesText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
                                                  Height="64" VerticalContentAlignment="Top" Margin="0,0,0,14" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
-                                        <TextBlock Text="当てはまらない例（1行に1例、3行まで）" Style="{StaticResource FieldTitle}" />
+                                        <TextBlock Text="{l:Translate '当てはまらない例（1行に1例、3行まで）', 'Non-matching examples (one per line, up to 3)'}" Style="{StaticResource FieldTitle}" />
                                         <TextBox Text="{Binding CounterExamplesText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True"
                                                  Height="64" VerticalContentAlignment="Top" Margin="0,0,0,14" />
                                     </StackPanel>
                                 </Grid>
 
-                                <TextBlock Text="振り分け先（アカウントごと。空にするとそのアカウントでは移動しません）" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate '振り分け先（アカウントごと。空にするとそのアカウントでは移動しません）', 'Destination folder per account (leave empty to not move mail for that account)'}" Style="{StaticResource FieldTitle}" />
                                 <ItemsControl ItemsSource="{Binding Folders}" ItemTemplate="{StaticResource FolderChoiceTemplate}" />
                             </StackPanel>
 
                             <DockPanel Margin="0,12,0,0">
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
-                                    <Button Content="一覧を更新" Command="{Binding RefreshFoldersCommand}" ToolTip="各アカウントのフォルダー一覧を取り直します" />
-                                    <Button Content="試し判定…" Command="{Binding RejudgeCommand}" Margin="0"
-                                            ToolTip="判定履歴のメールを、保存前のこの設定で判定し直します（移動はしません）" />
+                                    <Button Content="{l:Translate '一覧を更新', 'Refresh list'}" Command="{Binding RefreshFoldersCommand}" ToolTip="{l:Translate '各アカウントのフォルダー一覧を取り直します', 'Reload the folder list of each account'}" />
+                                    <Button Content="{l:Translate '試し判定…', 'Test judgment…'}" Command="{Binding RejudgeCommand}" Margin="0"
+                                            ToolTip="{l:Translate '判定履歴のメールを、保存前のこの設定で判定し直します（移動はしません）', 'Re-judge a mail from the history with these unsaved settings (no mail is moved)'}" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding FolderStatus}" Style="{StaticResource Hint}" Margin="0,0,12,0" />
                             </DockPanel>
@@ -143,7 +144,7 @@
             </TabItem>
 
             <!-- 停止対象（SC-03） -->
-            <TabItem Header="停止対象" DataContext="{Binding PauseTab}">
+            <TabItem Header="{l:Translate '停止対象', 'Pause rules'}" DataContext="{Binding PauseTab}">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Style="{StaticResource Panel}" Padding="10,6" Margin="0,0,0,10">
                         <TextBlock Text="{Binding CurrentDetection}" FontWeight="SemiBold" />
@@ -151,11 +152,11 @@
 
                     <Border DockPanel.Dock="Bottom" Style="{StaticResource Panel}" Margin="0,10,0,0" Padding="10">
                         <StackPanel Orientation="Horizontal">
-                            <CheckBox Content="全画面表示を検知する（動画の全画面再生などでも止まります）" IsChecked="{Binding FullscreenDetect}"
+                            <CheckBox Content="{l:Translate '全画面表示を検知する（動画の全画面再生などでも止まります）', 'Detect full-screen apps (full-screen video also pauses it)'}" IsChecked="{Binding FullscreenDetect}"
                                       VerticalAlignment="Center" Margin="0,0,32,0" />
-                            <TextBlock Text="再開までの待ち時間" Style="{StaticResource FieldLabel}" />
+                            <TextBlock Text="{l:Translate '再開までの待ち時間', 'Wait before resuming'}" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding ResumeDelayText, UpdateSourceTrigger=PropertyChanged}" Width="60" />
-                            <TextBlock Text="秒（0〜600、既定 60）" Style="{StaticResource FieldLabel}" Margin="6,0,0,0" />
+                            <TextBlock Text="{l:Translate '秒（0〜600、既定 60）', 'seconds (0 to 600, default 60)'}" Style="{StaticResource FieldLabel}" Margin="6,0,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -167,7 +168,7 @@
                         </Grid.ColumnDefinitions>
 
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="固定ルール（常に完全停止。削除・無効化・動作の変更はできません）" Style="{StaticResource Hint}" Margin="0,0,0,4" />
+                            <TextBlock DockPanel.Dock="Top" Text="{l:Translate '固定ルール（常に完全停止。削除・無効化・動作の変更はできません）', 'Built-in rules (always a full stop; cannot be deleted, disabled or changed)'}" Style="{StaticResource Hint}" Margin="0,0,0,4" />
                             <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding FixedRules}" Margin="0,0,0,8">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -178,7 +179,7 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource SubtleText}"
-                                                       VerticalAlignment="Top" Margin="0,3,0,0" ToolTip="固定ルール" />
+                                                       VerticalAlignment="Top" Margin="0,3,0,0" ToolTip="{l:Translate '固定ルール', 'Built-in rule'}" />
                                             <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" />
                                             <TextBlock Grid.Column="2" Text="{Binding Target}" Style="{StaticResource Hint}" />
                                         </Grid>
@@ -186,16 +187,16 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                             <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="22,0,0,10">
-                                <TextBlock Text="DMM のインストール先" Style="{StaticResource FieldLabel}" />
+                                <TextBlock Text="{l:Translate 'DMM のインストール先', 'DMM install folder'}" Style="{StaticResource FieldLabel}" />
                                 <TextBox Text="{Binding DmmGameFolder, UpdateSourceTrigger=PropertyChanged}" Width="260" />
-                                <Button Content="参照…" Command="{Binding BrowseDmmCommand}" Margin="6,0,0,0" MinWidth="60" />
+                                <Button Content="{l:Translate '参照…', 'Browse…'}" Command="{Binding BrowseDmmCommand}" Margin="6,0,0,0" MinWidth="60" />
                             </StackPanel>
 
                             <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                                <Button Content="実行中のアプリから選ぶ…" Command="{Binding AddRunningCommand}" Margin="0,0,6,6" />
-                                <Button Content="実行ファイルを参照…" Command="{Binding AddExeCommand}" Margin="0,0,6,6" />
-                                <Button Content="手動で追加" Command="{Binding AddManualCommand}" Margin="0,0,6,6" />
-                                <Button Content="削除" Command="{Binding DeleteCommand}" Margin="0,0,0,6" MinWidth="56" />
+                                <Button Content="{l:Translate '実行中のアプリから選ぶ…', 'Pick a running app…'}" Command="{Binding AddRunningCommand}" Margin="0,0,6,6" />
+                                <Button Content="{l:Translate '実行ファイルを参照…', 'Browse for a program…'}" Command="{Binding AddExeCommand}" Margin="0,0,6,6" />
+                                <Button Content="{l:Translate '手動で追加', 'Add manually'}" Command="{Binding AddManualCommand}" Margin="0,0,6,6" />
+                                <Button Content="{l:Translate '削除', 'Delete'}" Command="{Binding DeleteCommand}" Margin="0,0,0,6" MinWidth="56" />
                             </WrapPanel>
                             <ListBox ItemsSource="{Binding Rules}" SelectedItem="{Binding SelectedRule}" DisplayMemberPath="Summary" />
                         </DockPanel>
@@ -203,17 +204,17 @@
                         <Border Grid.Column="2" Style="{StaticResource Panel}"
                                 Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
                             <StackPanel DataContext="{Binding SelectedRule}">
-                                <CheckBox Content="有効（外すと一時的に無効になります）" IsChecked="{Binding Enabled}" />
-                                <TextBlock Text="名前（表示用）" Style="{StaticResource FieldTitle}" />
+                                <CheckBox Content="{l:Translate '有効（外すと一時的に無効になります）', 'Enabled (uncheck to turn off for now)'}" IsChecked="{Binding Enabled}" />
+                                <TextBlock Text="{l:Translate '名前（表示用）', 'Name (for display)'}" Style="{StaticResource FieldTitle}" />
                                 <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
-                                <TextBlock Text="判定方法" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate '判定方法', 'Match by'}" Style="{StaticResource FieldTitle}" />
                                 <ComboBox ItemsSource="{x:Static local:PauseRuleViewModel.MethodChoices}" DisplayMemberPath="Label"
                                           SelectedValuePath="Value" SelectedValue="{Binding Method}" Margin="0" />
-                                <TextBlock Text="実行ファイル名（完全一致。複数は「,」で区切る）" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate '実行ファイル名（完全一致。複数は「,」で区切る）', 'Executable names (exact match; separate several with commas)'}" Style="{StaticResource FieldTitle}" />
                                 <TextBox Text="{Binding ExeText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding UsesExe}" Margin="0,0,0,14" />
-                                <TextBlock Text="ウィンドウタイトル（部分一致）" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate 'ウィンドウタイトル（部分一致）', 'Window title (partial match)'}" Style="{StaticResource FieldTitle}" />
                                 <TextBox Text="{Binding TitleText, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding UsesTitle}" Margin="0,0,0,14" />
-                                <TextBlock Text="動作" Style="{StaticResource FieldTitle}" />
+                                <TextBlock Text="{l:Translate '動作', 'Action'}" Style="{StaticResource FieldTitle}" />
                                 <ComboBox ItemsSource="{x:Static local:PauseRuleViewModel.ActionChoices}" DisplayMemberPath="Label"
                                           SelectedValuePath="Value" SelectedValue="{Binding Action}" Margin="0" />
                             </StackPanel>
@@ -223,12 +224,12 @@
             </TabItem>
 
             <!-- 全般（SC-04） -->
-            <TabItem Header="全般" DataContext="{Binding GeneralTab}">
+            <TabItem Header="{l:Translate '全般', 'General'}" DataContext="{Binding GeneralTab}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,0,8,0">
                         <Border Style="{StaticResource Panel}">
                             <StackPanel>
-                                <TextBlock Text="アカウント" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="{l:Translate 'アカウント', 'Accounts'}" Style="{StaticResource SectionTitle}" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -237,58 +238,58 @@
                                     </Grid.ColumnDefinitions>
                                     <DockPanel>
                                         <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                                            <Button Content="iCloud を追加" Command="{Binding AddICloudCommand}" Margin="0,0,6,0" />
-                                            <Button Content="Gmail を追加" Command="{Binding AddGmailCommand}" Margin="0,0,6,0" />
-                                            <Button Content="削除" Command="{Binding RemoveAccountCommand}" Margin="0" MinWidth="56" />
+                                            <Button Content="{l:Translate 'iCloud を追加', 'Add iCloud'}" Command="{Binding AddICloudCommand}" Margin="0,0,6,0" />
+                                            <Button Content="{l:Translate 'Gmail を追加', 'Add Gmail'}" Command="{Binding AddGmailCommand}" Margin="0,0,6,0" />
+                                            <Button Content="{l:Translate '削除', 'Delete'}" Command="{Binding RemoveAccountCommand}" Margin="0" MinWidth="56" />
                                         </WrapPanel>
                                         <ListView ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" Height="150">
                                             <ListView.View>
                                                 <GridView>
                                                     <GridViewColumn Header="ID" DisplayMemberBinding="{Binding Id}" Width="80" />
-                                                    <GridViewColumn Header="種類" DisplayMemberBinding="{Binding Kind}" Width="70" />
-                                                    <GridViewColumn Header="ユーザー名" DisplayMemberBinding="{Binding User}" Width="190" />
-                                                    <GridViewColumn Header="パスワード" DisplayMemberBinding="{Binding PasswordStatus}" Width="80" />
+                                                    <GridViewColumn Header="{l:Translate '種類', 'Type'}" DisplayMemberBinding="{Binding Kind}" Width="70" />
+                                                    <GridViewColumn Header="{l:Translate 'ユーザー名', 'User name'}" DisplayMemberBinding="{Binding User}" Width="170" />
+                                                    <GridViewColumn Header="{l:Translate 'パスワード', 'Password'}" DisplayMemberBinding="{Binding PasswordStatus}" Width="110" />
                                                 </GridView>
                                             </ListView.View>
                                         </ListView>
                                     </DockPanel>
                                     <StackPanel Grid.Column="2" DataContext="{Binding SelectedAccount}">
-                                        <TextBlock Text="ID（新しく追加したアカウントだけ変えられます）" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
+                                        <TextBlock Text="{l:Translate 'ID（新しく追加したアカウントだけ変えられます）', 'ID (can be changed only for newly added accounts)'}" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
                                         <TextBox Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsNew}" Margin="0,0,0,14" />
-                                        <TextBlock Text="ユーザー名（iCloud は @ より前、Gmail はフルアドレス）" Style="{StaticResource FieldTitle}" />
+                                        <TextBlock Text="{l:Translate 'ユーザー名（iCloud は @ より前、Gmail はフルアドレス）', 'User name (iCloud: the part before @; Gmail: the full address)'}" Style="{StaticResource FieldTitle}" />
                                         <TextBox Text="{Binding User, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
                                         <StackPanel Orientation="Horizontal" Margin="0,4,0,6">
-                                            <Button Content="パスワードを登録…" Command="{Binding DataContext.RegisterPasswordCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
-                                            <Button Content="接続テスト" Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Margin="0" />
+                                            <Button Content="{l:Translate 'パスワードを登録…', 'Register password…'}" Command="{Binding DataContext.RegisterPasswordCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" />
+                                            <Button Content="{l:Translate '接続テスト', 'Test connection'}" Command="{Binding DataContext.TestConnectionCommand, RelativeSource={RelativeSource AncestorType=ScrollViewer}}" Margin="0" />
                                         </StackPanel>
                                         <TextBlock Text="{Binding TestResult}" Style="{StaticResource Hint}" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Text="パスワードは Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。アカウントの追加・削除は、保存してアプリを再起動すると反映されます。"
+                                <TextBlock Text="{l:Translate 'パスワードは Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。アカウントの追加・削除は、保存してアプリを再起動すると反映されます。', 'Passwords are stored only in Windows Credential Manager and are never shown on screen or written to the settings file. Adding or removing accounts takes effect after you save and restart the app.'}"
                                            Style="{StaticResource Hint}" Margin="0,8,0,0" />
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource Panel}" Margin="0,12,0,0">
                             <StackPanel>
-                                <TextBlock Text="仕分け" Style="{StaticResource SectionTitle}" />
-                                <CheckBox Content="新着メールを自動で仕分ける（オフの間は移動予定先を記録するだけです）" IsChecked="{Binding AutoSort}" Margin="0,0,0,10" />
+                                <TextBlock Text="{l:Translate '仕分け', 'Sorting'}" Style="{StaticResource SectionTitle}" />
+                                <CheckBox Content="{l:Translate '新着メールを自動で仕分ける（オフの間は移動予定先を記録するだけです）', 'Sort new mail automatically (while off, only the planned destination is recorded)'}" IsChecked="{Binding AutoSort}" Margin="0,0,0,10" />
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="移動に必要な確信度" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
-                                    <RadioButton Content="中以上（既定）" IsChecked="{Binding MediumOrAbove}" GroupName="Confidence" Margin="0,0,20,0" />
-                                    <RadioButton Content="高のみ" IsChecked="{Binding HighConfidenceOnly}" GroupName="Confidence" />
+                                    <TextBlock Text="{l:Translate '移動に必要な確信度', 'Confidence needed to move'}" Style="{StaticResource FieldLabel}" Margin="0,0,16,0" />
+                                    <RadioButton Content="{l:Translate '中以上（既定）', 'Medium or higher (default)'}" IsChecked="{Binding MediumOrAbove}" GroupName="Confidence" Margin="0,0,20,0" />
+                                    <RadioButton Content="{l:Translate '高のみ', 'High only'}" IsChecked="{Binding HighConfidenceOnly}" GroupName="Confidence" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
                         <Border Style="{StaticResource Panel}" Margin="0,12,0,0">
                             <StackPanel>
-                                <TextBlock Text="表示と履歴" Style="{StaticResource SectionTitle}" />
-                                <CheckBox Content="エラーのときにポップアップを出す（オフでもトレイアイコンで知らせます）" IsChecked="{Binding ErrorPopup}" Margin="0,0,0,10" />
+                                <TextBlock Text="{l:Translate '表示と履歴', 'Display and history'}" Style="{StaticResource SectionTitle}" />
+                                <CheckBox Content="{l:Translate 'エラーのときにポップアップを出す（オフでもトレイアイコンで知らせます）', 'Show a pop-up on errors (the tray icon shows errors even when this is off)'}" IsChecked="{Binding ErrorPopup}" Margin="0,0,0,10" />
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="判定履歴の保持日数" Style="{StaticResource FieldLabel}" />
+                                    <TextBlock Text="{l:Translate '判定履歴の保持日数', 'Keep judgment history for'}" Style="{StaticResource FieldLabel}" />
                                     <TextBox Text="{Binding RetentionDaysText, UpdateSourceTrigger=PropertyChanged}" Width="60" Margin="0,0,6,14" />
-                                    <TextBlock Text="日（7〜365、既定 90。誤判定を記録したものは残ります）" Style="{StaticResource FieldLabel}" Margin="0,0,0,14" />
+                                    <TextBlock Text="{l:Translate '日（7〜365、既定 90。誤判定を記録したものは残ります）', 'days (7 to 365, default 90; entries recorded as misjudged are kept)'}" Style="{StaticResource FieldLabel}" Margin="0,0,0,14" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -296,17 +297,17 @@
                         <Border Style="{StaticResource Panel}" Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="AI" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="接続先 URL（起動済みの llama-server など。この PC のアドレスだけ。変更は再起動が必要）" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
+                                <TextBlock Text="{l:Translate '接続先 URL（起動済みの llama-server など。この PC のアドレスだけ。変更は再起動が必要）', 'Server URL (a running llama-server or similar; addresses of this PC only; changes need a restart)'}" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
                                 <DockPanel>
-                                    <Button DockPanel.Dock="Right" Content="接続テスト" Command="{Binding TestLlmCommand}" Margin="6,0,0,0" VerticalAlignment="Top" />
-                                    <Button DockPanel.Dock="Right" Content="API キーを登録…" Command="{Binding RegisterApiKeyCommand}" Margin="6,0,0,0" VerticalAlignment="Top" />
+                                    <Button DockPanel.Dock="Right" Content="{l:Translate '接続テスト', 'Test connection'}" Command="{Binding TestLlmCommand}" Margin="6,0,0,0" VerticalAlignment="Top" />
+                                    <Button DockPanel.Dock="Right" Content="{l:Translate 'API キーを登録…', 'Register API key…'}" Command="{Binding RegisterApiKeyCommand}" Margin="6,0,0,0" VerticalAlignment="Top" />
                                     <TextBox Text="{Binding EndpointText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" />
                                 </DockPanel>
                                 <TextBlock Text="{Binding ApiKeyStatus}" Style="{StaticResource Hint}" />
                                 <TextBlock Text="{Binding LlmTestResult}" Style="{StaticResource Hint}" Margin="0,2,0,14" />
-                                <TextBlock Text="モデルファイル（接続先 URL を空にしたときだけ使い、アプリが llama-server を起動・終了します）" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
+                                <TextBlock Text="{l:Translate 'モデルファイル（接続先 URL を空にしたときだけ使い、アプリが llama-server を起動・終了します）', 'Model file (used only when the server URL is empty; the app then starts and stops llama-server)'}" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
                                 <DockPanel IsEnabled="{Binding UsesModelFile}">
-                                    <Button DockPanel.Dock="Right" Content="参照…" Command="{Binding BrowseModelCommand}" Margin="6,0,0,0" MinWidth="60" VerticalAlignment="Top" />
+                                    <Button DockPanel.Dock="Right" Content="{l:Translate '参照…', 'Browse…'}" Command="{Binding BrowseModelCommand}" Margin="6,0,0,0" MinWidth="60" VerticalAlignment="Top" />
                                     <TextBox Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
                                 </DockPanel>
                             </StackPanel>
@@ -314,11 +315,24 @@
 
                         <Border Style="{StaticResource Panel}" Margin="0,12,0,0">
                             <StackPanel>
-                                <TextBlock Text="起動とログ" Style="{StaticResource SectionTitle}" />
-                                <CheckBox Content="Windows のログオン時に自動で起動する（タスクスケジューラに登録。管理者権限は使いません）"
+                                <TextBlock Text="{l:Translate '起動とログ', 'Startup and logs'}" Style="{StaticResource SectionTitle}" />
+                                <CheckBox Content="{l:Translate 'Windows のログオン時に自動で起動する（タスクスケジューラに登録。管理者権限は使いません）', 'Start automatically when I sign in to Windows (registered in Task Scheduler; no administrator rights are used)'}"
                                           IsChecked="{Binding AutoStartEnabled}" />
                                 <TextBlock Text="{Binding AutoStartMessage}" Style="{StaticResource Hint}" Margin="20,4,0,10" />
-                                <Button Content="ログのフォルダーを開く" Command="{Binding OpenLogFolderCommand}" HorizontalAlignment="Left" />
+                                <Button Content="{l:Translate 'ログのフォルダーを開く', 'Open log folder'}" Command="{Binding OpenLogFolderCommand}" HorizontalAlignment="Left" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Panel}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{l:Translate '言語', 'Language'}" Style="{StaticResource SectionTitle}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{l:Translate '画面の言語', 'Display language'}" Style="{StaticResource FieldLabel}" />
+                                    <ComboBox ItemsSource="{Binding LanguageChoices}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedLanguage}" />
+                                </StackPanel>
+                                <TextBlock Text="{l:Translate '選ぶとすぐに切り替わり、設定ファイルに保存されます（入力中の内容はそのまま残ります）。', 'The change applies right away and is saved to the settings file (anything you are editing stays as it is).'}"
+                                           Style="{StaticResource Hint}" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding LanguageMessage}" Style="{StaticResource Hint}" Foreground="{StaticResource StatusFailed}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

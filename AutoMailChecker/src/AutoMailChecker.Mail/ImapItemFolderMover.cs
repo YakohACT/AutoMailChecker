@@ -21,7 +21,9 @@ public sealed class ImapItemFolderMover(ImapAccountSession session, IConfigProvi
     public Task<MovedMailRef> MoveToItemFolderAsync(MailRef mail, ItemId item, CancellationToken ct)
     {
         var folder = config.Current.Items.FirstOrDefault(i => i.Id == item)?.FolderFor(AccountId)
-            ?? throw new MailFolderNotFoundException(AccountId, $"（項目「{item.Value}」の振り分け先が未設定）");
+            ?? throw new MailFolderNotFoundException(AccountId, Translate.Text(
+                $"（項目「{item.Value}」の振り分け先が未設定）",
+                $"(no destination set for the item \"{item.Value}\")"));
         return MoveAsync(mail, folder, ct);
     }
 
@@ -69,7 +71,7 @@ public sealed class ImapItemFolderMover(ImapAccountSession session, IConfigProvi
         EnsureSameAccount(mail.AccountId);
         if (AppInfo.IsInbox(destinationName))
         {
-            throw new MailMoveException("受信トレイは振り分け先にできません。");
+            throw new MailMoveException(Translate.Text("受信トレイは振り分け先にできません。", "The inbox cannot be a destination."));
         }
 
         return session.UseAsync(async (client, token) =>
@@ -81,12 +83,14 @@ public sealed class ImapItemFolderMover(ImapAccountSession session, IConfigProvi
             }
             catch (FolderNotFoundException)
             {
-                throw new MailNotFoundException(mail, "フォルダーがサーバーにありません。");
+                throw new MailNotFoundException(mail, Translate.Text("フォルダーがサーバーにありません。", "The folder does not exist on the server."));
             }
 
             if (source.UidValidity != mail.UidValidity)
             {
-                throw new MailNotFoundException(mail, "UIDVALIDITY が変わったため、この UID は無効です。");
+                throw new MailNotFoundException(mail, Translate.Text(
+                    "UIDVALIDITY が変わったため、この UID は無効です。",
+                    "This UID is no longer valid because UIDVALIDITY changed."));
             }
 
             IMailFolder destination;
@@ -101,14 +105,18 @@ public sealed class ImapItemFolderMover(ImapAccountSession session, IConfigProvi
 
             if (ImapFolders.IsJunk(client, destination))
             {
-                throw new MailMoveException($"迷惑メールフォルダー「{destinationName}」には移動しません。");
+                throw new MailMoveException(Translate.Text(
+                    $"迷惑メールフォルダー「{destinationName}」には移動しません。",
+                    $"Mail is never moved to the junk folder \"{destinationName}\"."));
             }
 
             var uid = new UniqueId(mail.Uid);
             var exists = await source.SearchAsync(SearchQuery.Uids([uid]), token).ConfigureAwait(false);
             if (exists.Count == 0)
             {
-                throw new MailNotFoundException(mail, "メールがフォルダーにありません（移動または削除された）。");
+                throw new MailNotFoundException(mail, Translate.Text(
+                    "メールがフォルダーにありません（移動または削除された）。",
+                    "The mail is not in the folder (it was moved or deleted)."));
             }
 
             var destinationUid = await MoveUidAsync(client, source, uid, destination, token).ConfigureAwait(false);
@@ -133,7 +141,9 @@ public sealed class ImapItemFolderMover(ImapAccountSession session, IConfigProvi
 
         if (!client.Capabilities.HasFlag(ImapCapabilities.UidPlus))
         {
-            throw new MailMoveException("サーバーが MOVE にも UIDPLUS にも対応していないため、移動できません。");
+            throw new MailMoveException(Translate.Text(
+                "サーバーが MOVE にも UIDPLUS にも対応していないため、移動できません。",
+                "The mail cannot be moved because the server supports neither MOVE nor UIDPLUS."));
         }
 
         var copied = await source.CopyToAsync(uid, destination, ct).ConfigureAwait(false);

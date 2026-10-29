@@ -66,7 +66,9 @@ public sealed class AppStatusService : IAppStatus, IStatusReporter
             return;
         }
 
-        var message = issues.Count == 1 ? issues[0].ToString() : $"{issues[0]}（ほか{issues.Count - 1}件）";
+        var message = issues.Count == 1 ? issues[0].ToString() : Translate.Text(
+            $"{issues[0]}（ほか{issues.Count - 1}件）",
+            $"{issues[0]} (+{issues.Count - 1} more)");
         ReportError(ConfigErrorSource, message);
     }
 

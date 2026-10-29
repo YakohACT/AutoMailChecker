@@ -43,12 +43,12 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
     private string _folder = AppInfo.InboxFolder;
     private bool _moveMode;
     private string _maxMessagesText;
-    private string? _estimateText;
-    private string? _message;
+    private Func<string>? _estimateText;
+    private Func<string>? _message;
     private long? _runId;
     private int _processed;
     private int _total;
-    private string _runModeText = "";
+    private AppStatusSnapshot _lastStatus = AppStatusSnapshot.Initial;
     private TrialReport? _report;
 
     public TrialViewModel(
@@ -84,7 +84,7 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
         NewTrialCommand = new AsyncCommand(() =>
         {
             Stage = TrialStage.Setup;
-            Message = null;
+            SetMessage(null);
             return Task.CompletedTask;
         });
 
@@ -157,14 +157,17 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
     public bool PreviewMode { get => !MoveMode; set => MoveMode = !value; }
 
     public string MaxMessagesText { get => _maxMessagesText; set => SetProperty(ref _maxMessagesText, value); }
-    public string? EstimateText { get => _estimateText; private set => SetProperty(ref _estimateText, value); }
-    public string? Message { get => _message; private set => SetProperty(ref _message, value); }
+    /// <summary>対象の件数と見込み時間。文言は読むたびに作る（言語を切り替えたら読み直す）。</summary>
+    public string? EstimateText => _estimateText?.Invoke();
+
+    public string? Message => _message?.Invoke();
 
     public long? RunId { get => _runId; private set => SetProperty(ref _runId, value); }
 
-    public string ProgressText => $"{_processed} / {_total} 件";
+    public string ProgressText => Translate.Text($"{_processed} / {_total} 件", $"{_processed} / {_total}");
     public double ProgressPercent => _total == 0 ? 0 : 100.0 * _processed / _total;
-    public string RunModeText { get => _runModeText; private set => SetProperty(ref _runModeText, value); }
+    public string RunModeText =>
+        Translate.Text("現在の運転モード: ", "Current mode: ") + TrayStatusFormatter.StatusLine(_lastStatus, DateTimeOffset.Now);
 
     public TrialReport? Report
     {
@@ -183,17 +186,26 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
     }
 
     public string ReportTitle => Report is { } r
-        ? $"お試し仕分け #{r.Run.Id}（{r.Run.PeriodFrom:yyyy/M/d}〜{r.Run.PeriodTo:yyyy/M/d}、{ModeLabel(r.Run.Mode)}）{StatusLabel(r.Run)}"
+        ? Translate.Text(
+            $"お試し仕分け #{r.Run.Id}（{r.Run.PeriodFrom:yyyy/M/d}〜{r.Run.PeriodTo:yyyy/M/d}、{ModeLabel(r.Run.Mode)}）{StatusLabel(r.Run)}",
+            $"Trial sort #{r.Run.Id} ({r.Run.PeriodFrom:yyyy/M/d}–{r.Run.PeriodTo:yyyy/M/d}, {ModeLabel(r.Run.Mode)}){StatusLabel(r.Run)}")
         : "";
 
     public string ReportCountsText => Report is { } r
-        ? $"対象 {r.Run.Total} 件　・　確信度「低」 {r.LowConfidence} 件　・　該当なし {r.NoMatch} 件　・　失敗 {r.Failed} 件"
+        ? Translate.Text(
+            $"対象 {r.Run.Total} 件　・　確信度「低」 {r.LowConfidence} 件　・　該当なし {r.NoMatch} 件　・　失敗 {r.Failed} 件",
+            $"Total {r.Run.Total}  ·  Low confidence {r.LowConfidence}  ·  No match {r.NoMatch}  ·  Failed {r.Failed}")
         : "";
 
     public string AccuracyText => Report?.Accuracy is { } a
-        ? $"この回の精度（誤判定の記録 {a.Corrections} 件から）: 「{a.KeyItemLabel}」の見逃し率 {Percent(a.MissRate)}（{a.KeyItemTotal} 件中）"
-          + $"　・　誤振り分け率 {Percent(a.MisrouteRate)}（{a.RoutedTotal} 件中）"
-        : "判定履歴で誤判定を記録すると、ここに「この回の精度」（見逃し率・誤振り分け率）が出ます。";
+        ? Translate.Text(
+            $"この回の精度（誤判定の記録 {a.Corrections} 件から）: 「{a.KeyItemLabel}」の見逃し率 {Percent(a.MissRate)}（{a.KeyItemTotal} 件中）"
+                + $"　・　誤振り分け率 {Percent(a.MisrouteRate)}（{a.RoutedTotal} 件中）",
+            $"Accuracy of this run (from {a.Corrections} misjudgment records): miss rate for \"{a.KeyItemLabel}\" {Percent(a.MissRate)} (of {a.KeyItemTotal})"
+                + $"  ·  wrong destination rate {Percent(a.MisrouteRate)} (of {a.RoutedTotal})")
+        : Translate.Text(
+            "判定履歴で誤判定を記録すると、ここに「この回の精度」（見逃し率・誤振り分け率）が出ます。",
+            "Record misjudgments in the history to see the accuracy of this run (miss rate and wrong destination rate) here.");
 
     /// <summary>「この回の移動をまとめて戻す」は、実際に移動した回で、まだ戻していないときだけ。</summary>
     public bool CanRollback => Report is { Run.Mode: TrialMode.Move, Run.RolledBackAt: null, Moved: > 0 };
@@ -221,14 +233,16 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
     public static string FormatDuration(TimeSpan duration)
     {
         var minutes = (int)Math.Ceiling(duration.TotalMinutes);
-        return minutes < 60 ? $"約{minutes}分" : $"約{minutes / 60}時間{minutes % 60}分";
+        return minutes < 60
+            ? Translate.Text($"約{minutes}分", $"about {minutes} min")
+            : Translate.Text($"約{minutes / 60}時間{minutes % 60}分", $"about {minutes / 60} h {minutes % 60} min");
     }
 
     private TrialRequest BuildRequest()
     {
         if (From is not { } from || To is not { } to)
         {
-            throw new ArgumentException("期間を指定してください。");
+            throw new ArgumentException(Translate.Text("期間を指定してください。", "Specify the period."));
         }
 
         // 空欄なら上限なし
@@ -237,7 +251,9 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
         {
             if (!int.TryParse(MaxMessagesText.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
             {
-                throw new ArgumentException("件数の上限は数字で指定してください（空欄なら上限なし）。");
+                throw new ArgumentException(Translate.Text(
+                    "件数の上限は数字で指定してください（空欄なら上限なし）。",
+                    "Enter a number for the maximum (leave it empty for no limit)."));
             }
 
             max = value;
@@ -251,27 +267,32 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
     private async Task EstimateAsync()
     {
         var request = BuildRequest();
-        Message = null;
-        EstimateText = "対象を数えています…";
+        SetMessage(null);
+        SetEstimate(() => Translate.Text("対象を数えています…", "Counting mails…"));
         var estimate = await _trials.EstimateAsync(request, CancellationToken.None);
-        EstimateText = estimate.Found > estimate.Selected
-            ? $"対象 約{estimate.Found}件（上限で {estimate.Selected} 件に間引き）　/　見込み {FormatDuration(estimate.Total)}"
-            : $"対象 約{estimate.Selected}件　/　見込み {FormatDuration(estimate.Total)}";
+        SetEstimate(() => estimate.Found > estimate.Selected
+            ? Translate.Text(
+                $"対象 約{estimate.Found}件（上限で {estimate.Selected} 件に間引き）　/　見込み {FormatDuration(estimate.Total)}",
+                $"About {estimate.Found} mails ({estimate.Selected} after applying the maximum)  /  estimated {FormatDuration(estimate.Total)}")
+            : Translate.Text(
+                $"対象 約{estimate.Selected}件　/　見込み {FormatDuration(estimate.Total)}",
+                $"About {estimate.Selected} mails  /  estimated {FormatDuration(estimate.Total)}"));
     }
 
     private async Task StartAsync()
     {
         var request = BuildRequest();
-        if (request.Mode == TrialMode.Move && !_confirm(
-                "対象のメールを実際に振り分け先へ移動します。\n終わったあと、この回の移動はまとめて受信トレイへ戻せます。\n始めますか？"))
+        if (request.Mode == TrialMode.Move && !_confirm(Translate.Text(
+                "対象のメールを実際に振り分け先へ移動します。\n終わったあと、この回の移動はまとめて受信トレイへ戻せます。\n始めますか？",
+                "The mails will actually be moved to their destinations.\nAfterwards, you can move all mail of this run back to the inbox at once.\nStart now?")))
         {
             return;
         }
 
-        Message = null;
-        EstimateText = "対象を集めています…";
+        SetMessage(null);
+        SetEstimate(() => Translate.Text("対象を集めています…", "Collecting mails…"));
         var run = await _trials.StartAsync(request, CancellationToken.None);
-        EstimateText = null;
+        SetEstimate(null);
         if (run.Status == TrialRunStatus.Running)
         {
             ShowRunning(run.Id, run.Processed, run.Total);
@@ -295,15 +316,18 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
 
     private async Task RollbackAsync()
     {
-        if (Report is not { } report || !_confirm("この回で移動したメールを、まとめて受信トレイへ戻しますか？"))
+        if (Report is not { } report || !_confirm(Translate.Text(
+                "この回で移動したメールを、まとめて受信トレイへ戻しますか？", "Move all mail moved in this run back to the inbox?")))
         {
             return;
         }
 
-        Message = "受信トレイへ戻しています…";
+        SetMessage(() => Translate.Text("受信トレイへ戻しています…", "Moving mail back to the inbox…"));
         var summary = await _trials.RollbackAsync(report.Run.Id, CancellationToken.None);
         await ShowReportAsync(report.Run.Id);
-        Message = $"受信トレイへ戻しました（戻した {summary.Restored} 件、見つからない {summary.NotFound} 件、失敗 {summary.Failed} 件）。";
+        SetMessage(() => Translate.Text(
+            $"受信トレイへ戻しました（戻した {summary.Restored} 件、見つからない {summary.NotFound} 件、失敗 {summary.Failed} 件）。",
+            $"Moved back to the inbox (moved back {summary.Restored}, not found {summary.NotFound}, failed {summary.Failed})."));
     }
 
     private void ShowRunning(long runId, int processed, int total)
@@ -361,21 +385,37 @@ public sealed class TrialViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ProgressPercent));
     }
 
-    private void UpdateRunMode(AppStatusSnapshot status) =>
-        RunModeText = "現在の運転モード: " + TrayStatusFormatter.StatusLine(status, DateTimeOffset.Now);
+    private void UpdateRunMode(AppStatusSnapshot status)
+    {
+        _lastStatus = status;
+        OnPropertyChanged(nameof(RunModeText));
+    }
 
     private void ShowError(Exception ex)
     {
-        EstimateText = null;
-        Message = ex is ArgumentException ? ex.Message : $"エラー: {ex.Message}";
+        SetEstimate(null);
+        SetMessage(() => ex is ArgumentException ? ex.Message : Translate.Text($"エラー: {ex.Message}", $"Error: {ex.Message}"));
     }
 
-    private static string ModeLabel(TrialMode mode) => mode == TrialMode.Move ? "実際に移動" : "結果の表示のみ";
+    private void SetEstimate(Func<string>? text)
+    {
+        _estimateText = text;
+        OnPropertyChanged(nameof(EstimateText));
+    }
+
+    private void SetMessage(Func<string>? message)
+    {
+        _message = message;
+        OnPropertyChanged(nameof(Message));
+    }
+
+    private static string ModeLabel(TrialMode mode) =>
+        mode == TrialMode.Move ? Translate.Text("実際に移動", "moved") : Translate.Text("結果の表示のみ", "results only");
 
     private static string StatusLabel(TrialRun run) => run switch
     {
-        { RolledBackAt: not null } => "　まとめて戻し済み",
-        { Status: TrialRunStatus.Cancelled } => "　中止",
+        { RolledBackAt: not null } => Translate.Text("　まとめて戻し済み", "  (all moves undone)"),
+        { Status: TrialRunStatus.Cancelled } => Translate.Text("　中止", "  (stopped)"),
         _ => "",
     };
 

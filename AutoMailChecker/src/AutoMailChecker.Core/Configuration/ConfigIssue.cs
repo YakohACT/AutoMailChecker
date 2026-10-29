@@ -13,6 +13,7 @@ public enum ConfigSection
     History,
     Llm,
     Pause,
+    Ui,
 }
 
 /// <summary>設定の誤り1件。Path は「items[2].priority」のような位置。</summary>

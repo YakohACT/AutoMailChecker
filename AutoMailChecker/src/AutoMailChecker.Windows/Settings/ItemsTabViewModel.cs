@@ -98,7 +98,7 @@ public sealed class ItemEditViewModel : EditableObject
     }
 
     /// <summary>一覧の表示（例:「1. 重要」）。並び順がそのまま優先度になる。</summary>
-    public string ListText => $"{Priority}. {Label}" + (Enabled ? "" : "（無効）");
+    public string ListText => $"{Priority}. {Label}" + (Enabled ? "" : Translate.Text("（無効）", " (off)"));
 
     public ObservableCollection<FolderChoice> Folders { get; }
 
@@ -132,7 +132,7 @@ public sealed class ItemsTabViewModel : ObservableObject
     private readonly Dictionary<string, IReadOnlyList<string>> _serverFolders = [];
     private List<string> _accountIds;
     private ItemEditViewModel? _selectedItem;
-    private string _folderStatus = "";
+    private Func<string> _folderStatus = () => "";
 
     public ItemsTabViewModel(
         AppConfig config, IMailFolderCatalog catalog, IRejudgeService rejudge, IStateStore store,
@@ -185,12 +185,12 @@ public sealed class ItemsTabViewModel : ObservableObject
     public bool HasSelection => SelectedItem is not null;
 
     /// <summary>フォルダー一覧の取得状況（例:「icloud: 取得できません（パスワードが登録されていません）」）。</summary>
-    public string FolderStatus { get => _folderStatus; private set => SetProperty(ref _folderStatus, value); }
+    public string FolderStatus => _folderStatus();
 
     /// <summary>各アカウントのフォルダー一覧を問い合わせ、振り分け先の候補を作る。</summary>
     public async Task LoadFoldersAsync(bool refresh)
     {
-        FolderStatus = "フォルダー一覧を取得しています…";
+        SetFolderStatus(() => Translate.Text("フォルダー一覧を取得しています…", "Loading the folder lists…"));
         var problems = new List<string>();
         foreach (var accountId in _accountIds.ToList())
         {
@@ -206,9 +206,20 @@ public sealed class ItemsTabViewModel : ObservableObject
         }
 
         RecomputeSuggestions();
-        FolderStatus = problems.Count == 0
-            ? "振り分け先は、各アカウントに既にあるフォルダーから選びます（アプリはフォルダーを作りません）。"
-            : "フォルダー一覧を取得できないアカウントがあります。フォルダー名を直接入力することもできます。\n" + string.Join("\n", problems);
+        SetFolderStatus(() => problems.Count == 0
+            ? Translate.Text(
+                "振り分け先は、各アカウントに既にあるフォルダーから選びます（アプリはフォルダーを作りません）。",
+                "Choose destinations from folders that already exist in each account (the app does not create folders).")
+            : Translate.Text(
+                "フォルダー一覧を取得できないアカウントがあります。フォルダー名を直接入力することもできます。",
+                "The folder list could not be loaded for some accounts. You can also type folder names directly.")
+                + "\n" + string.Join("\n", problems));
+    }
+
+    private void SetFolderStatus(Func<string> status)
+    {
+        _folderStatus = status;
+        OnPropertyChanged(nameof(FolderStatus));
     }
 
     /// <summary>全般タブでアカウントを追加・削除したら、振り分け先の欄も合わせる。</summary>
@@ -253,7 +264,9 @@ public sealed class ItemsTabViewModel : ObservableObject
         {
             if (choice.Value is { } folder && _serverFolders.TryGetValue(choice.AccountId, out var known) && !known.Contains(folder))
             {
-                yield return $"{choice.AccountId} に振り分け先フォルダー「{folder}」がありません（そのフォルダーへの移動は止まります）。";
+                yield return Translate.Text(
+                    $"{choice.AccountId} に振り分け先フォルダー「{folder}」がありません（そのフォルダーへの移動は止まります）。",
+                    $"{choice.AccountId} has no destination folder \"{folder}\" (moves to that folder are stopped).");
             }
         }
     }
@@ -275,7 +288,7 @@ public sealed class ItemsTabViewModel : ObservableObject
         var item = new ItemEditViewModel(new ItemDefinition
         {
             Id = NewItemId(),
-            Label = "新しい項目",
+            Label = Translate.Text("新しい項目", "New item"),
             Description = "",
         }, _accountIds);
         AddItem(item);
@@ -287,7 +300,9 @@ public sealed class ItemsTabViewModel : ObservableObject
     private void Delete()
     {
         if (SelectedItem is not { } item
-            || !_dialogs.Confirm($"項目「{item.Label}」を削除しますか？\n過去の判定履歴には表示名の控えが残ります。\n（保存するまでは設定ファイルに反映されません）"))
+            || !_dialogs.Confirm(Translate.Text(
+                $"項目「{item.Label}」を削除しますか？\n過去の判定履歴には表示名の控えが残ります。\n（保存するまでは設定ファイルに反映されません）",
+                $"Delete the item \"{item.Label}\"?\nPast judgment history keeps a copy of its display name.\n(The settings file does not change until you save.)")))
         {
             return;
         }

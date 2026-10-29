@@ -39,14 +39,20 @@ public sealed class SettingsDialogs(Func<Window> owner) : ISettingsDialogs
         == MessageBoxResult.OK;
 
     public string? AskPassword(string accountId, string user) => AskSecret(
-        "パスワードの登録",
-        $"{accountId}（{(string.IsNullOrWhiteSpace(user) ? "ユーザー名未入力" : user)}）のパスワード",
-        "iCloud は「App用パスワード」、Gmail は「アプリ パスワード」を入力してください。Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。");
+        Translate.Text("パスワードの登録", "Register password"),
+        Translate.Text(
+            $"{accountId}（{(string.IsNullOrWhiteSpace(user) ? "ユーザー名未入力" : user)}）のパスワード",
+            $"Password for {accountId} ({(string.IsNullOrWhiteSpace(user) ? "no user name yet" : user)})"),
+        Translate.Text(
+            "iCloud は「App用パスワード」、Gmail は「アプリ パスワード」を入力してください。Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。",
+            "Enter an app-specific password for iCloud or an app password for Gmail. It is stored only in Windows Credential Manager and is never shown on screen or written to the settings file."));
 
     public string? AskApiKey() => AskSecret(
-        "API キーの登録",
-        "AI サーバーの API キー",
-        "llama-server を --api-key 付きで起動したときに、そこで指定したキーを入力してください。Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。");
+        Translate.Text("API キーの登録", "Register API key"),
+        Translate.Text("AI サーバーの API キー", "API key of the AI server"),
+        Translate.Text(
+            "llama-server を --api-key 付きで起動したときに、そこで指定したキーを入力してください。Windows 資格情報マネージャーにだけ保存し、画面にも設定ファイルにも出しません。",
+            "Enter the key you passed with --api-key when you started llama-server. It is stored only in Windows Credential Manager and is never shown on screen or written to the settings file."));
 
     private string? AskSecret(string title, string heading, string hint)
     {
@@ -56,13 +62,15 @@ public sealed class SettingsDialogs(Func<Window> owner) : ISettingsDialogs
 
     public string? PickExecutable()
     {
-        var dialog = new OpenFileDialog { Filter = "実行ファイル (*.exe)|*.exe", Title = "停止対象のアプリを選ぶ" };
+        var dialog = new OpenFileDialog { Filter = Translate.Text(
+            "実行ファイル (*.exe)|*.exe",
+            "Programs (*.exe)|*.exe"), Title = Translate.Text("停止対象のアプリを選ぶ", "Choose an app to pause for") };
         return dialog.ShowDialog(owner()) == true ? dialog.FileName : null;
     }
 
     public string? PickFolder(string? initialFolder)
     {
-        var dialog = new OpenFolderDialog { Title = "フォルダーを選ぶ" };
+        var dialog = new OpenFolderDialog { Title = Translate.Text("フォルダーを選ぶ", "Choose a folder") };
         if (!string.IsNullOrWhiteSpace(initialFolder) && Directory.Exists(initialFolder))
         {
             dialog.InitialDirectory = initialFolder;
@@ -73,7 +81,9 @@ public sealed class SettingsDialogs(Func<Window> owner) : ISettingsDialogs
 
     public string? PickModelFile(string? current)
     {
-        var dialog = new OpenFileDialog { Filter = "モデル (*.gguf)|*.gguf", Title = "モデルファイルを選ぶ" };
+        var dialog = new OpenFileDialog { Filter = Translate.Text(
+            "モデル (*.gguf)|*.gguf",
+            "Models (*.gguf)|*.gguf"), Title = Translate.Text("モデルファイルを選ぶ", "Choose a model file") };
         if (!string.IsNullOrWhiteSpace(current) && Path.GetDirectoryName(current) is { } directory && Directory.Exists(directory))
         {
             dialog.InitialDirectory = directory;

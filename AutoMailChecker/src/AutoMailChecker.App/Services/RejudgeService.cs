@@ -17,10 +17,12 @@ public sealed class RejudgeService(
     public async Task<RejudgeResult> RejudgeAsync(long judgementId, AppConfig draft, CancellationToken ct)
     {
         var record = await store.Judgements.GetAsync(judgementId, ct).ConfigureAwait(false)
-            ?? throw new ArgumentException("判定履歴が見つかりません。");
+            ?? throw new ArgumentException(Translate.Text("判定履歴が見つかりません。", "The history entry was not found."));
         if (!accounts.TryGetReader(record.Mail.AccountId, out var reader))
         {
-            throw new ArgumentException($"アカウント「{record.Mail.AccountId}」が設定にありません。");
+            throw new ArgumentException(Translate.Text(
+                $"アカウント「{record.Mail.AccountId}」が設定にありません。",
+                $"The account \"{record.Mail.AccountId}\" is not in the settings."));
         }
 
         var snapshot = await FetchCurrentAsync(reader, record, draft.Llm.MaxBodyChars, ct).ConfigureAwait(false);
@@ -39,10 +41,10 @@ public sealed class RejudgeService(
         ? target.Folder
         : decision.Outcome switch
         {
-            Outcome.KeptLowConfidence => "受信トレイに残す（確信度が低い）",
-            Outcome.KeptNoMatch => "受信トレイに残す（該当なし）",
-            Outcome.KeptNoFolder => "受信トレイに残す（振り分け先なし）",
-            _ => "受信トレイに残す",
+            Outcome.KeptLowConfidence => Translate.Text("受信トレイに残す（確信度が低い）", "Keep in inbox (low confidence)"),
+            Outcome.KeptNoMatch => Translate.Text("受信トレイに残す（該当なし）", "Keep in inbox (no match)"),
+            Outcome.KeptNoFolder => Translate.Text("受信トレイに残す（振り分け先なし）", "Keep in inbox (no destination)"),
+            _ => Translate.Text("受信トレイに残す", "Keep in inbox"),
         };
 
     /// <summary>いまメールがある場所から本文を取る。UID で見つからなければ Message-ID で探す。</summary>
@@ -88,6 +90,8 @@ public sealed class RejudgeService(
             }
         }
 
-        throw new MailNotFoundException(record.Mail, "メールが見つかりません（移動または削除された可能性があります）。");
+        throw new MailNotFoundException(record.Mail, Translate.Text(
+            "メールが見つかりません（移動または削除された可能性があります）。",
+            "The mail was not found (it may have been moved or deleted)."));
     }
 }

@@ -69,7 +69,9 @@ public class MailMoveException(string message, Exception? inner = null) : Except
 
 /// <summary>振り分け先フォルダーが未設定、またはサーバーにない。メールは受信トレイに残し、その項目への移動を止めて知らせる。</summary>
 public sealed class MailFolderNotFoundException(string accountId, string folder)
-    : MailMoveException($"{accountId}: 振り分け先フォルダー「{folder}」がサーバーにありません。")
+    : MailMoveException(Translate.Text(
+        $"{accountId}: 振り分け先フォルダー「{folder}」がサーバーにありません。",
+        $"{accountId}: the destination folder \"{folder}\" does not exist on the server."))
 {
     public string AccountId { get; } = accountId;
     public string Folder { get; } = folder;

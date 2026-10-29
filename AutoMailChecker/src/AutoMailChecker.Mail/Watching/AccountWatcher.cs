@@ -91,7 +91,7 @@ public sealed class AccountWatcher
                     AccountId, delay.TotalSeconds, failures, ex.Message);
                 if (failures >= FailuresBeforeReport)
                 {
-                    _status.ReportError(AccountId, "サーバーに接続できません（繋ぎ直しています）");
+                    _status.ReportError(AccountId, Translate.Text("サーバーに接続できません（繋ぎ直しています）", "Cannot connect to the server (reconnecting)"));
                 }
 
                 await Task.Delay(delay, _time, ct).ConfigureAwait(false);
@@ -216,13 +216,13 @@ public sealed class AccountWatcher
             }
             catch (FolderNotFoundException)
             {
-                problems.Add($"監視するフォルダー「{name}」がサーバーにありません。");
+                problems.Add(Translate.Text($"監視するフォルダー「{name}」がサーバーにありません。", $"The watched folder \"{name}\" does not exist on the server."));
                 continue;
             }
 
             if (ImapFolders.IsJunk(client, folder))
             {
-                problems.Add($"迷惑メールフォルダー「{name}」は監視できません。");
+                problems.Add(Translate.Text($"迷惑メールフォルダー「{name}」は監視できません。", $"The junk folder \"{name}\" cannot be watched."));
                 continue;
             }
 
@@ -231,7 +231,9 @@ public sealed class AccountWatcher
 
         if (targets.Count == 0)
         {
-            throw new WatchFolderException(problems.Count > 0 ? string.Join(" ", problems) : "監視するフォルダーがありません。");
+            throw new WatchFolderException(problems.Count > 0 ? string.Join(" ", problems) : Translate.Text(
+                "監視するフォルダーがありません。",
+                "There is no folder to watch."));
         }
 
         if (problems.Count > 0)

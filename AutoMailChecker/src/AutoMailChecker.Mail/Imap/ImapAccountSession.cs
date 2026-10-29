@@ -60,7 +60,9 @@ public sealed class ImapAccountSession : IDisposable
                     Drop();
                     if (!retryOnDisconnect || attempt >= 2)
                     {
-                        throw new MailServerException(_account.Id, $"サーバーとの通信が切れました: {ex.Message}",
+                        throw new MailServerException(_account.Id, Translate.Text(
+                            $"サーバーとの通信が切れました: {ex.Message}",
+                            $"The connection to the server dropped: {ex.Message}"),
                             isAuthenticationFailure: false, ex);
                     }
 

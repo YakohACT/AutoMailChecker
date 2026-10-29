@@ -22,7 +22,9 @@ public sealed class MailFolderCatalog(IMailAccountRegistry accounts, TimeProvide
 
         if (!accounts.TryGetReader(accountId, out var reader))
         {
-            throw new ArgumentException($"アカウント「{accountId}」は、保存してアプリを再起動するまで使えません。");
+            throw new ArgumentException(Translate.Text(
+                $"アカウント「{accountId}」は、保存してアプリを再起動するまで使えません。",
+                $"The account \"{accountId}\" cannot be used until you save and restart the app."));
         }
 
         var folders = (await reader.ListFoldersAsync(ct).ConfigureAwait(false))

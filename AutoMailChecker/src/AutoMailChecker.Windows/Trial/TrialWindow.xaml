@@ -1,12 +1,13 @@
 <Window x:Class="AutoMailChecker.Windows.Trial.TrialWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:AutoMailChecker.Windows.Ui"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoMailChecker.Windows.Trial"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=local:TrialViewModel}"
-        Title="お試し仕分け - AutoMailChecker"
+        Title="{l:Translate 'お試し仕分け - AutoMailChecker', 'Trial sort - AutoMailChecker'}"
         Width="640" SizeToContent="Height" MinHeight="300" ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
         FontSize="13">
@@ -21,9 +22,9 @@
     <StackPanel Margin="20">
         <!-- 設定 -->
         <StackPanel Visibility="{Binding IsSetup, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="過去のメールで仕分けを試します" Style="{StaticResource SectionTitle}" />
+            <TextBlock Text="{l:Translate '過去のメールで仕分けを試します', 'Try sorting with past mail'}" Style="{StaticResource SectionTitle}" />
             <TextBlock TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" Margin="0,0,0,16"
-                       Text="期間を指定した過去のメールだけを判定します。新着メールの監視とは独立して動き、新着が届けばそちらを先に処理します。" />
+                       Text="{l:Translate '期間を指定した過去のメールだけを判定します。新着メールの監視とは独立して動き、新着が届けばそちらを先に処理します。', 'Only past mail in the period you choose is judged. This runs separately from watching for new mail, and new mail is always processed first.'}" />
 
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -38,14 +39,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="期間（受信日）" Style="{StaticResource FieldLabel}" />
+                <TextBlock Grid.Row="0" Text="{l:Translate '期間（受信日）', 'Period (received)'}" Style="{StaticResource FieldLabel}" />
                 <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
                     <DatePicker SelectedDate="{Binding From}" />
                     <TextBlock Text="〜" Margin="8,0" VerticalAlignment="Center" />
                     <DatePicker SelectedDate="{Binding To}" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="1" Text="アカウント" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" />
+                <TextBlock Grid.Row="1" Text="{l:Translate 'アカウント', 'Accounts'}" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" />
                 <ItemsControl Grid.Row="1" Grid.Column="1" ItemsSource="{Binding Accounts}" Margin="0,0,0,10">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -59,50 +60,51 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <TextBlock Grid.Row="2" Text="対象フォルダー" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,3,6,0" />
+                <TextBlock Grid.Row="2" Text="{l:Translate '対象フォルダー', 'Folder'}" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,3,6,0" />
                 <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,10">
                     <TextBox Text="{Binding Folder, UpdateSourceTrigger=PropertyChanged}" Width="180" HorizontalAlignment="Left"
                              VerticalContentAlignment="Center" />
-                    <TextBlock Text="既定は受信トレイ（INBOX）。ほかのフォルダーを選ぶと、実行方法は「結果の表示のみ」になります。"
+                    <TextBlock Text="{l:Translate '既定は受信トレイ（INBOX）。ほかのフォルダーを選ぶと、実行方法は「結果の表示のみ」になります。', 'The default is the inbox (INBOX). With any other folder, the mode is fixed to “Show results only”.'}"
                                Foreground="{StaticResource SubtleText}" Margin="0,3,0,0" FontSize="12" TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="3" Text="実行方法" Style="{StaticResource FieldLabel}" />
+                <TextBlock Grid.Row="3" Text="{l:Translate '実行方法', 'Mode'}" Style="{StaticResource FieldLabel}" />
                 <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
-                    <RadioButton Content="結果の表示のみ（移動しない）" IsChecked="{Binding PreviewMode}" Margin="0,0,20,0" GroupName="Mode" />
-                    <RadioButton Content="実際に移動する" IsChecked="{Binding MoveMode}" IsEnabled="{Binding CanMove}" GroupName="Mode" />
+                    <RadioButton Content="{l:Translate '結果の表示のみ（移動しない）', 'Show results only (no mail is moved)'}" IsChecked="{Binding PreviewMode}" Margin="0,0,20,0" GroupName="Mode" />
+                    <RadioButton Content="{l:Translate '実際に移動する', 'Actually move mail'}" IsChecked="{Binding MoveMode}" IsEnabled="{Binding CanMove}" GroupName="Mode" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="4" Text="件数の上限" Style="{StaticResource FieldLabel}" />
-                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBox Text="{Binding MaxMessagesText, UpdateSourceTrigger=PropertyChanged}" Width="70" VerticalContentAlignment="Center" />
-                    <TextBlock Text="件（空欄なら上限なし。数字を入れると、超える分は期間内から均等に間引きます）" Foreground="{StaticResource SubtleText}"
-                               Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12" />
-                </StackPanel>
+                <TextBlock Grid.Row="4" Text="{l:Translate '件数の上限', 'Maximum mails'}" Style="{StaticResource FieldLabel}" />
+                <DockPanel Grid.Row="4" Grid.Column="1" Margin="0,0,0,10">
+                    <TextBox DockPanel.Dock="Left" Text="{Binding MaxMessagesText, UpdateSourceTrigger=PropertyChanged}" Width="70"
+                             VerticalAlignment="Top" VerticalContentAlignment="Center" />
+                    <TextBlock Text="{l:Translate '件（空欄なら上限なし。数字を入れると、超える分は期間内から均等に間引きます）', 'mails (leave empty for no limit; with a number, mails beyond it are skipped evenly across the period)'}" Foreground="{StaticResource SubtleText}"
+                               Margin="10,0,0,0" VerticalAlignment="Center" FontSize="12" TextWrapping="Wrap" />
+                </DockPanel>
             </Grid>
 
             <Border Style="{StaticResource Panel}" Margin="0,6,0,14" Padding="10">
                 <StackPanel Orientation="Horizontal">
-                    <Button Content="対象を数える" Command="{Binding EstimateCommand}" />
+                    <Button Content="{l:Translate '対象を数える', 'Count mails'}" Command="{Binding EstimateCommand}" />
                     <TextBlock Text="{Binding EstimateText}" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="開始" Command="{Binding StartCommand}" IsDefault="True" Margin="0" MinWidth="100" />
+                <Button Content="{l:Translate '開始', 'Start'}" Command="{Binding StartCommand}" IsDefault="True" Margin="0" MinWidth="100" />
             </StackPanel>
         </StackPanel>
 
         <!-- 実行中 -->
         <StackPanel Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="お試し仕分けを実行しています" Style="{StaticResource SectionTitle}" />
+            <TextBlock Text="{l:Translate 'お試し仕分けを実行しています', 'Trial sort in progress'}" Style="{StaticResource SectionTitle}" />
             <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Height="14" Margin="0,4,0,8" />
             <TextBlock Text="{Binding ProgressText}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,6" />
             <TextBlock Text="{Binding RunModeText}" Foreground="{StaticResource SubtleText}" Margin="0,0,0,6" />
-            <TextBlock Text="このダイアログを閉じても、裏で続きます。終わるとトレイの表示が戻ります。"
+            <TextBlock Text="{l:Translate 'このダイアログを閉じても、裏で続きます。終わるとトレイの表示が戻ります。', 'It keeps running in the background even if you close this dialog. The tray goes back to normal when it finishes.'}"
                        Foreground="{StaticResource SubtleText}" TextWrapping="Wrap" Margin="0,0,0,16" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="中止" Command="{Binding CancelCommand}" Margin="0" />
+                <Button Content="{l:Translate '中止', 'Stop'}" Command="{Binding CancelCommand}" Margin="0" />
             </StackPanel>
         </StackPanel>
 
@@ -111,7 +113,7 @@
             <TextBlock Text="{Binding ReportTitle}" Style="{StaticResource SectionTitle}" TextWrapping="Wrap" />
             <Border Style="{StaticResource Panel}" Margin="0,0,0,10">
                 <StackPanel>
-                    <TextBlock Text="項目ごとの件数（移動・移動予定）" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                    <TextBlock Text="{l:Translate '項目ごとの件数（移動・移動予定）', 'Mails per item (moved or planned)'}" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
                     <ItemsControl ItemsSource="{Binding ItemCounts}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -122,7 +124,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{Binding Label}" />
                                     <TextBlock Grid.Column="1" FontWeight="SemiBold">
-                                        <Run Text="{Binding Count, Mode=OneWay}" /><Run Text=" 件" />
+                                        <Run Text="{Binding Count, Mode=OneWay}" /><Run Text="{l:Translate ' 件', ''}" />
                                     </TextBlock>
                                 </Grid>
                             </DataTemplate>
@@ -133,10 +135,10 @@
             </Border>
             <TextBlock Text="{Binding AccuracyText}" TextWrapping="Wrap" Foreground="{StaticResource SubtleText}" Margin="0,0,0,16" />
             <WrapPanel HorizontalAlignment="Right">
-                <Button Content="結果を判定履歴で見る" Command="{Binding OpenHistoryCommand}" />
-                <Button Content="この回の移動をまとめて戻す" Command="{Binding RollbackCommand}"
+                <Button Content="{l:Translate '結果を判定履歴で見る', 'View results in history'}" Command="{Binding OpenHistoryCommand}" />
+                <Button Content="{l:Translate 'この回の移動をまとめて戻す', 'Undo all moves of this run'}" Command="{Binding RollbackCommand}"
                         Visibility="{Binding CanRollback, Converter={StaticResource BoolToVisibility}}" />
-                <Button Content="もう一度試す" Command="{Binding NewTrialCommand}" Margin="0" />
+                <Button Content="{l:Translate 'もう一度試す', 'Try again'}" Command="{Binding NewTrialCommand}" Margin="0" />
             </WrapPanel>
         </StackPanel>
 

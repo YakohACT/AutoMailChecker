@@ -104,5 +104,9 @@
     "fullscreenDetect": true,             // 重い場合はfalse
     "pollSeconds": 5,                     // 2〜60
     "resumeDelaySeconds": 60              // 0〜600
+  },
+
+  "ui": {
+    "language": "ja"                      // 画面の言語。"ja"（日本語）または "en"（English）
   }
 }

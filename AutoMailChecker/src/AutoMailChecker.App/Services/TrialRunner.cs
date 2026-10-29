@@ -102,7 +102,9 @@ public sealed class TrialRunner(
     public async Task<TrialReport> GetReportAsync(long trialRunId, CancellationToken ct)
     {
         var run = await store.TrialRuns.GetAsync(trialRunId, ct).ConfigureAwait(false)
-            ?? throw new ArgumentException($"お試し仕分けの回 {trialRunId} が見つかりません。", nameof(trialRunId));
+            ?? throw new ArgumentException(Translate.Text(
+                $"お試し仕分けの回 {trialRunId} が見つかりません。",
+                $"Trial run {trialRunId} was not found."), nameof(trialRunId));
         var judgements = await LoadJudgementsAsync(trialRunId, ct).ConfigureAwait(false);
         return TrialReportBuilder.Build(run, judgements, config.Current.Items);
     }
@@ -129,7 +131,7 @@ public sealed class TrialRunner(
         {
             if (!accounts.TryGetReader(accountId, out var reader))
             {
-                throw new ArgumentException($"アカウント「{accountId}」が設定にありません。");
+                throw new ArgumentException(Translate.Text($"アカウント「{accountId}」が設定にありません。", $"The account \"{accountId}\" is not in the settings."));
             }
 
             found.AddRange(await reader.SearchByDateAsync(request.Folder, request.From, request.To, ct).ConfigureAwait(false));
@@ -142,22 +144,24 @@ public sealed class TrialRunner(
     {
         if (request.From > request.To)
         {
-            throw new ArgumentException("期間の開始日が終了日より後になっています。");
+            throw new ArgumentException(Translate.Text("期間の開始日が終了日より後になっています。", "The start date is after the end date."));
         }
 
         if (request.Accounts.Count == 0)
         {
-            throw new ArgumentException("アカウントを1つ以上選んでください。");
+            throw new ArgumentException(Translate.Text("アカウントを1つ以上選んでください。", "Select at least one account."));
         }
 
         if (string.IsNullOrWhiteSpace(request.Folder))
         {
-            throw new ArgumentException("対象フォルダーを指定してください。");
+            throw new ArgumentException(Translate.Text("対象フォルダーを指定してください。", "Specify the folder."));
         }
 
         if (request.MaxMessages is < 1)
         {
-            throw new ArgumentException("件数の上限は1以上で指定してください（空欄なら上限なし）。");
+            throw new ArgumentException(Translate.Text(
+                "件数の上限は1以上で指定してください（空欄なら上限なし）。",
+                "The maximum must be 1 or more (leave it empty for no limit)."));
         }
     }
 }

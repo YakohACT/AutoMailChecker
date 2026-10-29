@@ -1,3 +1,4 @@
+using AutoMailChecker.Core;
 using Microsoft.Data.Sqlite;
 
 namespace AutoMailChecker.Persistence;
@@ -143,7 +144,9 @@ internal static class SqliteMigrations
         if (current > LatestVersion)
         {
             throw new InvalidOperationException(
-                $"状態 DB の版（{current}）がこのアプリの対応する版（{LatestVersion}）より新しいため開けません。新しい版のアプリを使ってください。");
+                Translate.Text(
+                    $"状態 DB の版（{current}）がこのアプリの対応する版（{LatestVersion}）より新しいため開けません。新しい版のアプリを使ってください。",
+                    $"Cannot open the state database: its version ({current}) is newer than this app supports ({LatestVersion}). Use a newer version of the app."));
         }
 
         for (var version = current; version < LatestVersion; version++)

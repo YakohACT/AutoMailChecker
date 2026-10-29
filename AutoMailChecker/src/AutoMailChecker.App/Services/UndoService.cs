@@ -15,17 +15,21 @@ public sealed class UndoService(IStateStore store, IMailAccountRegistry accounts
         var judgement = await store.Judgements.GetAsync(judgementId, ct).ConfigureAwait(false);
         if (judgement?.Move is not { } move)
         {
-            return new UndoOutcome(UndoResult.Failed, "このメールは移動していません。");
+            return new UndoOutcome(UndoResult.Failed, Translate.Text("このメールは移動していません。", "This mail has not been moved."));
         }
 
         if (move.UndoneAt is not null)
         {
-            return new UndoOutcome(move.UndoResult ?? UndoResult.Restored, "すでに受信トレイに戻してあります。");
+            return new UndoOutcome(move.UndoResult ?? UndoResult.Restored, Translate.Text(
+                "すでに受信トレイに戻してあります。",
+                "It has already been moved back to the inbox."));
         }
 
         if (!accounts.TryGetMover(move.Moved.AccountId, out var mover))
         {
-            return new UndoOutcome(UndoResult.Failed, $"アカウント「{move.Moved.AccountId}」が設定にありません。");
+            return new UndoOutcome(UndoResult.Failed, Translate.Text(
+                $"アカウント「{move.Moved.AccountId}」が設定にありません。",
+                $"The account \"{move.Moved.AccountId}\" is not in the settings."));
         }
 
         UndoResult result;
@@ -60,11 +64,15 @@ public sealed class UndoService(IStateStore store, IMailAccountRegistry accounts
         return result switch
         {
             UndoResult.Restored => new UndoOutcome(result, asMisjudgement
-                ? "受信トレイに戻し、誤判定として記録しました。本来の項目があれば選んで記録できます。"
-                : "受信トレイに戻しました。"),
+                ? Translate.Text(
+                    "受信トレイに戻し、誤判定として記録しました。本来の項目があれば選んで記録できます。",
+                    "Moved back to the inbox and recorded as misjudged. If there is a correct item, you can choose it and record it.")
+                : Translate.Text("受信トレイに戻しました。", "Moved back to the inbox.")),
             UndoResult.NotFound => new UndoOutcome(result,
-                "移動先にメールが見つかりませんでした。すでに別の場所へ移されているため、何もしていません。"),
-            _ => new UndoOutcome(result, $"戻せませんでした: {problem}"),
+                Translate.Text(
+                    "移動先にメールが見つかりませんでした。すでに別の場所へ移されているため、何もしていません。",
+                    "The mail was not found in the destination. It has already been moved elsewhere, so nothing was done.")),
+            _ => new UndoOutcome(result, Translate.Text($"戻せませんでした: {problem}", $"Could not move it back: {problem}")),
         };
     }
 }

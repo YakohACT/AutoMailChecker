@@ -28,7 +28,7 @@ public sealed class WindowsCredentialStore : ICredentialStore
                 return null;
             }
 
-            throw new Win32Exception(error, $"資格情報「{key}」を読めませんでした。");
+            throw new Win32Exception(error, Translate.Text($"資格情報「{key}」を読めませんでした。", $"Could not read the credential \"{key}\"."));
         }
 
         try
@@ -51,7 +51,7 @@ public sealed class WindowsCredentialStore : ICredentialStore
         var size = secret.Length * sizeof(char);
         if (size > MaxSecretBytes)
         {
-            throw new ArgumentException("パスワードが長すぎます。", nameof(secret));
+            throw new ArgumentException(Translate.Text("パスワードが長すぎます。", "The password is too long."), nameof(secret));
         }
 
         var blob = Marshal.StringToCoTaskMemUni(secret);
@@ -68,7 +68,9 @@ public sealed class WindowsCredentialStore : ICredentialStore
             };
             if (!NativeMethods.CredWrite(ref credential, 0))
             {
-                throw new Win32Exception(Marshal.GetLastPInvokeError(), $"資格情報「{key}」を保存できませんでした。");
+                throw new Win32Exception(Marshal.GetLastPInvokeError(), Translate.Text(
+                    $"資格情報「{key}」を保存できませんでした。",
+                    $"Could not save the credential \"{key}\"."));
             }
         }
         finally

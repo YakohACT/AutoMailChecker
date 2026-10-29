@@ -12,8 +12,9 @@ public static class LlmEndpoint
     /// <summary>API キーを置く資格情報マネージャーの名前（アカウント ID に使えない「.」を入れ、アカウントと重ならないようにする）。</summary>
     public const string ApiKeyCredentialKey = AppInfo.Name + "/llm.apiKey";
 
-    private const string FormatMessage =
-        "接続先 URL は http://127.0.0.1:8080 のように、この PC のアドレス（127.0.0.1 または localhost）で指定してください。";
+    private static string FormatMessage => Translate.Text(
+        "接続先 URL は http://127.0.0.1:8080 のように、この PC のアドレス（127.0.0.1 または localhost）で指定してください。",
+        "Specify the server URL with an address of this PC (127.0.0.1 or localhost), such as http://127.0.0.1:8080.");
 
     /// <summary>
     /// URL を確かめ、要求の基点にする（末尾に / を付け、OpenAI 互換の「/v1」で終わっていれば外す）。
@@ -31,7 +32,9 @@ public static class LlmEndpoint
 
         if (!uri.IsLoopback)
         {
-            error = $"「{uri.Host}」には接続できません。メール本文がこの PC の外に出ないよう、この PC のアドレス（127.0.0.1 または localhost）だけを指定できます。";
+            error = Translate.Text(
+                $"「{uri.Host}」には接続できません。メール本文がこの PC の外に出ないよう、この PC のアドレス（127.0.0.1 または localhost）だけを指定できます。",
+                $"Cannot connect to \"{uri.Host}\". To keep mail contents on this PC, only addresses of this PC (127.0.0.1 or localhost) are allowed.");
             return null;
         }
 

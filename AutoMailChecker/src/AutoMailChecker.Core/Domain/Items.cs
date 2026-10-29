@@ -43,7 +43,7 @@ public sealed class ItemIdJsonConverter : JsonConverter<ItemId>
     {
         if (reader.TokenType != JsonTokenType.String)
         {
-            throw new JsonException("項目 ID は文字列で指定してください。");
+            throw new JsonException(Translate.Text("項目 ID は文字列で指定してください。", "Specify the item ID as a string."));
         }
 
         return new ItemId(reader.GetString() ?? "");

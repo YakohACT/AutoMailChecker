@@ -12,7 +12,7 @@ namespace AutoMailChecker.Core;
 /// </summary>
 public sealed class RunModeResolver
 {
-    public const string ManualStopReason = "手動";
+    public static string ManualStopReason => Translate.Text("手動", "manual");
 
     private readonly HashSet<string> _ignored = new(StringComparer.Ordinal);
     private ManualCommand _manual;

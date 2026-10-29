@@ -1,12 +1,13 @@
 <Window x:Class="AutoMailChecker.Windows.History.HistoryWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:AutoMailChecker.Windows.Ui"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AutoMailChecker.Windows.History"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=local:HistoryViewModel}"
-        Title="判定履歴 - AutoMailChecker"
+        Title="{l:Translate '判定履歴 - AutoMailChecker', 'Judgment history - AutoMailChecker'}"
         Width="1180" Height="760" MinWidth="820" MinHeight="520"
         WindowStartupLocation="CenterScreen"
         FontSize="13">
@@ -21,21 +22,21 @@
     <DockPanel Margin="16">
         <!-- 絞り込み -->
         <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-            <TextBlock Text="期間" Style="{StaticResource FieldLabel}" />
+            <TextBlock Text="{l:Translate '期間', 'Period'}" Style="{StaticResource FieldLabel}" />
             <DatePicker SelectedDate="{Binding From}" />
             <TextBlock Text="〜" Margin="6,0" VerticalAlignment="Center" />
             <DatePicker SelectedDate="{Binding To}" Margin="0,0,16,0" />
 
-            <TextBlock Text="アカウント" Style="{StaticResource FieldLabel}" />
-            <ComboBox ItemsSource="{Binding AccountChoices}" SelectedItem="{Binding SelectedAccount}" />
+            <TextBlock Text="{l:Translate 'アカウント', 'Account'}" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding AccountChoices}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedAccount}" />
 
-            <TextBlock Text="結果" Style="{StaticResource FieldLabel}" />
-            <ComboBox ItemsSource="{Binding CategoryChoices}" SelectedItem="{Binding SelectedCategory}" MinWidth="150" />
+            <TextBlock Text="{l:Translate '結果', 'Result'}" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding CategoryChoices}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedCategory}" MinWidth="150" />
 
-            <TextBlock Text="お試しの回" Style="{StaticResource FieldLabel}" />
-            <ComboBox ItemsSource="{Binding TrialChoices}" SelectedItem="{Binding SelectedTrial}" MinWidth="200" />
+            <TextBlock Text="{l:Translate 'お試しの回', 'Trial run'}" Style="{StaticResource FieldLabel}" />
+            <ComboBox ItemsSource="{Binding TrialChoices}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedTrial}" MinWidth="200" />
 
-            <Button Content="表示" Command="{Binding RefreshCommand}" IsDefault="True" />
+            <Button Content="{l:Translate '表示', 'Show'}" Command="{Binding RefreshCommand}" IsDefault="True" />
         </WrapPanel>
 
         <!-- 集計 -->
@@ -58,12 +59,12 @@
                       EnableRowVirtualization="True"
                       ScrollViewer.ScrollChanged="OnRowsScrollChanged">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="受信日時" Binding="{Binding ReceivedText}" Width="128" />
-                    <DataGridTextColumn Header="アカウント" Binding="{Binding Account}" Width="90" />
-                    <DataGridTextColumn Header="件名" Binding="{Binding Subject}" Width="*" />
-                    <DataGridTextColumn Header="該当項目" Binding="{Binding ItemsText}" Width="150" />
-                    <DataGridTextColumn Header="確信度" Binding="{Binding ConfidenceText}" Width="60" />
-                    <DataGridTemplateColumn Header="移動先" Width="230">
+                    <DataGridTextColumn Header="{l:Translate '受信日時', 'Received'}" Binding="{Binding ReceivedText}" Width="128" />
+                    <DataGridTextColumn Header="{l:Translate 'アカウント', 'Account'}" Binding="{Binding Account}" Width="90" />
+                    <DataGridTextColumn Header="{l:Translate '件名', 'Subject'}" Binding="{Binding Subject}" Width="*" />
+                    <DataGridTextColumn Header="{l:Translate '該当項目', 'Matched items'}" Binding="{Binding ItemsText}" Width="150" />
+                    <DataGridTextColumn Header="{l:Translate '確信度', 'Confidence'}" Binding="{Binding ConfidenceText}" Width="84" />
+                    <DataGridTemplateColumn Header="{l:Translate '移動先', 'Destination'}" Width="230">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DestinationText}" Style="{StaticResource DestinationText}"
@@ -79,7 +80,7 @@
             <!-- 選んだ1件の詳細と操作 -->
             <Border Grid.Row="2" Style="{StaticResource Panel}">
                 <Grid>
-                    <TextBlock Text="一覧からメールを選ぶと、ここに詳細が出ます。" Foreground="{StaticResource SubtleText}"
+                    <TextBlock Text="{l:Translate '一覧からメールを選ぶと、ここに詳細が出ます。', 'Select a mail in the list to see its details here.'}" Foreground="{StaticResource SubtleText}"
                                HorizontalAlignment="Center" VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -110,17 +111,17 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="差出人" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{l:Translate '差出人', 'From'}" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
                         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FromText}" TextTrimming="CharacterEllipsis" Margin="0,0,0,6" />
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="要約" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{l:Translate '要約', 'Summary'}" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SummaryText}" TextWrapping="Wrap" Margin="0,0,0,6" />
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="判定理由" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{l:Translate '判定理由', 'Reason'}" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ReasonText}" TextWrapping="Wrap" Margin="0,0,0,6" />
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="該当項目" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{l:Translate '該当項目', 'Matched items'}" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
                         <TextBlock Grid.Row="3" Grid.Column="1" Margin="0,0,0,6">
-                            <Run Text="{Binding ItemsText, Mode=OneWay}" /><Run Text="　（確信度 " Foreground="{StaticResource SubtleText}" /><Run Text="{Binding ConfidenceText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" /><Run Text="）" Foreground="{StaticResource SubtleText}" />
+                            <Run Text="{Binding ItemsText, Mode=OneWay}" /><Run Text="{l:Translate '　（確信度 ', '  (confidence: '}" Foreground="{StaticResource SubtleText}" /><Run Text="{Binding ConfidenceText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" /><Run Text="{l:Translate '）', ')'}" Foreground="{StaticResource SubtleText}" />
                         </TextBlock>
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="結果" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="{l:Translate '結果', 'Result'}" Style="{StaticResource FieldLabel}" Margin="0,0,12,6" />
                         <TextBlock Grid.Row="4" Grid.Column="1" Margin="0,0,0,6">
                             <Run Text="{Binding DestinationText, Mode=OneWay}" /><Run Text="　" /><Run Text="{Binding KindText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" /><Run Text="　" /><Run Text="{Binding CorrectionText, Mode=OneWay}" Foreground="{StaticResource SubtleText}" />
                         </TextBlock>
@@ -131,13 +132,13 @@
                         <!-- 操作 -->
                         <StackPanel Grid.Row="0" Grid.RowSpan="7" Grid.Column="2" Margin="16,0,0,0"
                                     DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-                            <Button Content="受信トレイに戻す" Command="{Binding UndoCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"
-                                    ToolTip="移動したメールを、同じアカウントの受信トレイへ戻します（確認なしで実行します）" />
-                            <TextBlock Text="誤判定として記録（本来の項目）" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
+                            <Button Content="{l:Translate '受信トレイに戻す', 'Move back to inbox'}" Command="{Binding UndoCommand}" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                    ToolTip="{l:Translate '移動したメールを、同じアカウントの受信トレイへ戻します（確認なしで実行します）', 'Moves the mail back to the inbox of the same account (without asking first)'}" />
+                            <TextBlock Text="{l:Translate '誤判定として記録（本来の項目）', 'Record as misjudged (correct item)'}" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" />
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                <ComboBox ItemsSource="{Binding CorrectionChoices}" SelectedItem="{Binding SelectedCorrection}"
+                                <ComboBox ItemsSource="{Binding CorrectionChoices}" DisplayMemberPath="Label" SelectedItem="{Binding SelectedCorrection}"
                                           MinWidth="150" Margin="0,0,8,0" />
-                                <Button Content="記録" Command="{Binding RecordCorrectionCommand}" MinWidth="60" />
+                                <Button Content="{l:Translate '記録', 'Record'}" Command="{Binding RecordCorrectionCommand}" MinWidth="60" />
                             </StackPanel>
                             <TextBlock Text="{Binding DetailMessage}" TextWrapping="Wrap" Foreground="{StaticResource StatusPlanned}" />
                         </StackPanel>

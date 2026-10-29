@@ -117,17 +117,21 @@ public sealed class ImapMailReader(ImapAccountSession session, BodyPreprocessor 
         }
         catch (FolderNotFoundException)
         {
-            throw new MailNotFoundException(mail, "フォルダーがサーバーにありません。");
+            throw new MailNotFoundException(mail, Translate.Text("フォルダーがサーバーにありません。", "The folder does not exist on the server."));
         }
 
         if (folder.UidValidity != mail.UidValidity)
         {
-            throw new MailNotFoundException(mail, "UIDVALIDITY が変わったため、この UID は無効です。");
+            throw new MailNotFoundException(mail, Translate.Text(
+                "UIDVALIDITY が変わったため、この UID は無効です。",
+                "This UID is no longer valid because UIDVALIDITY changed."));
         }
 
         var summaries = await folder.FetchAsync([new UniqueId(mail.Uid)], request, ct).ConfigureAwait(false);
         var summary = summaries.FirstOrDefault()
-            ?? throw new MailNotFoundException(mail, "メールがフォルダーにありません（移動または削除された）。");
+            ?? throw new MailNotFoundException(mail, Translate.Text(
+                "メールがフォルダーにありません（移動または削除された）。",
+                "The mail is not in the folder (it was moved or deleted)."));
         return (folder, summary);
     }
 

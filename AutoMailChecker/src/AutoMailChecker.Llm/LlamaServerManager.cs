@@ -179,7 +179,7 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
         catch (Win32Exception ex)
         {
             process.Dispose();
-            throw new LlmStartException($"llama-server を起動できません: {ex.Message}", ex);
+            throw new LlmStartException(Translate.Text($"llama-server を起動できません: {ex.Message}", $"Cannot start llama-server: {ex.Message}"), ex);
         }
 
         _starting = process;
@@ -208,7 +208,9 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
             ct.ThrowIfCancellationRequested();
             if (process.HasExited)
             {
-                throw new LlmStartException($"llama-server が終了しました（終了コード {process.ExitCode}）。{_output.Describe()}");
+                throw new LlmStartException(Translate.Text(
+                    $"llama-server が終了しました（終了コード {process.ExitCode}）。{_output.Describe()}",
+                    $"llama-server exited (exit code {process.ExitCode}). {_output.Describe()}"));
             }
 
             try
@@ -230,7 +232,9 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
 
             if (_time.GetUtcNow() >= deadline)
             {
-                throw new LlmStartException($"{HealthTimeout.TotalSeconds:0} 秒以内に準備ができませんでした。{_output.Describe()}");
+                throw new LlmStartException(Translate.Text(
+                    $"{HealthTimeout.TotalSeconds:0} 秒以内に準備ができませんでした。{_output.Describe()}",
+                    $"Not ready within {HealthTimeout.TotalSeconds:0} seconds. {_output.Describe()}"));
             }
 
             await Task.Delay(HealthPollInterval, _time, ct).ConfigureAwait(false);
@@ -286,12 +290,16 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
     {
         if (!File.Exists(_startup.ServerExe))
         {
-            throw new LlmStartException($"llama-server.exe が見つかりません（llm.serverExe: {_startup.ServerExe}）。");
+            throw new LlmStartException(Translate.Text(
+                $"llama-server.exe が見つかりません（llm.serverExe: {_startup.ServerExe}）。",
+                $"llama-server.exe was not found (llm.serverExe: {_startup.ServerExe})."));
         }
 
         if (!File.Exists(_startup.Model))
         {
-            throw new LlmStartException($"モデルファイルが見つかりません（llm.model: {_startup.Model}）。");
+            throw new LlmStartException(Translate.Text(
+                $"モデルファイルが見つかりません（llm.model: {_startup.Model}）。",
+                $"The model file was not found (llm.model: {_startup.Model})."));
         }
     }
 
@@ -306,7 +314,9 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
         catch (SocketException)
         {
             throw new LlmStartException(
-                $"ポート {_startup.Port} はほかのプログラムが使っています。残っている llama-server を終了するか、llm.port を変えてください。");
+                Translate.Text(
+                    $"ポート {_startup.Port} はほかのプログラムが使っています。残っている llama-server を終了するか、llm.port を変えてください。",
+                    $"Port {_startup.Port} is used by another program. Exit any remaining llama-server or change llm.port."));
         }
     }
 
@@ -384,7 +394,7 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
         {
             lock (_gate)
             {
-                return _lines.Count == 0 ? "" : "最後の出力: " + string.Join(" / ", _lines.TakeLast(count));
+                return _lines.Count == 0 ? "" : Translate.Text("最後の出力: ", "Last output: ") + string.Join(" / ", _lines.TakeLast(count));
             }
         }
     }
