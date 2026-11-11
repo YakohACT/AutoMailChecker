@@ -305,8 +305,17 @@
                                 </DockPanel>
                                 <TextBlock Text="{Binding ApiKeyStatus}" Style="{StaticResource Hint}" />
                                 <TextBlock Text="{Binding LlmTestResult}" Style="{StaticResource Hint}" Margin="0,2,0,14" />
-                                <TextBlock Text="{l:Translate 'モデルファイル（接続先 URL を空にしたときだけ使い、アプリが llama-server を起動・終了します）', 'Model file (used only when the server URL is empty; the app then starts and stops llama-server)'}" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
-                                <DockPanel IsEnabled="{Binding UsesModelFile}">
+                                <CheckBox Content="{l:Translate 'この URL でサーバーが起動していなければ、アプリが llama-server を起動する（変更は再起動が必要）', 'If no server is running at this URL, let the app start llama-server (changes need a restart)'}"
+                                          IsChecked="{Binding ManageServer}" IsEnabled="{Binding HasEndpoint}" />
+                                <TextBlock Text="{l:Translate 'アプリが起動した llama-server は、完全停止（ゲームの検出やトレイの操作）とアプリの終了のときに終了し、再開すると起動し直します。すでに起動しているサーバーがあればそれを使い、終了しません。接続先 URL が空のときは、常にアプリが起動します。', 'A llama-server started by the app is shut down when the app stops completely (a detected game or the tray menu) or exits, and is started again on resume. A server that is already running is used as it is and is never shut down. When the server URL is empty, the app always starts llama-server.'}"
+                                           Style="{StaticResource Hint}" Margin="20,4,0,14" />
+                                <TextBlock Text="{l:Translate 'llama-server.exe の場所（アプリが llama-server を起動するときに使います。変更は再起動が必要）', 'Location of llama-server.exe (used when the app starts llama-server; changes need a restart)'}" Style="{StaticResource FieldTitle}" Margin="0,0,0,3" />
+                                <DockPanel IsEnabled="{Binding StartsServer}">
+                                    <Button DockPanel.Dock="Right" Content="{l:Translate '参照…', 'Browse…'}" Command="{Binding BrowseServerExeCommand}" Margin="6,0,0,0" MinWidth="60" VerticalAlignment="Top" />
+                                    <TextBox Text="{Binding ServerExePath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
+                                </DockPanel>
+                                <TextBlock Text="{l:Translate 'モデルファイル（アプリが llama-server を起動するときに使います。変更は再起動が必要）', 'Model file (used when the app starts llama-server; changes need a restart)'}" Style="{StaticResource FieldTitle}" Margin="0,6,0,3" />
+                                <DockPanel IsEnabled="{Binding StartsServer}">
                                     <Button DockPanel.Dock="Right" Content="{l:Translate '参照…', 'Browse…'}" Command="{Binding BrowseModelCommand}" Margin="6,0,0,0" MinWidth="60" VerticalAlignment="Top" />
                                     <TextBox Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,14" />
                                 </DockPanel>

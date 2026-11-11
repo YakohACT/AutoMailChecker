@@ -66,15 +66,24 @@ public static class AppHost
             sp.GetRequiredService<ILoggerFactory>()));
 
         // AI。接続先 URL があれば起動済みのサーバーに繋ぎ、なければ llama-server を起動する。
+        // 接続先 URL があって llm.manageServer がオンなら、そこにサーバーが起動していないときだけアプリが起動する。
         // 接続先・モデル・ポート・文脈長は起動時の設定で決まる（変更は再起動で反映）
         services.AddSingleton<ILlmRuntime>(sp =>
         {
             var config = sp.GetRequiredService<IConfigProvider>();
             var time = sp.GetRequiredService<TimeProvider>();
-            return config.Current.Llm.UsesEndpoint
-                ? new ExternalLlamaServer(config, sp.GetRequiredService<ICredentialStore>(), time,
-                    sp.GetRequiredService<ILogger<ExternalLlamaServer>>())
-                : new LlamaServerManager(config, paths.RunDirectory, time, sp.GetRequiredService<ILogger<LlamaServerManager>>());
+            var llm = config.Current.Llm;
+            if (!llm.UsesEndpoint)
+            {
+                return new LlamaServerManager(config, paths.RunDirectory, time, sp.GetRequiredService<ILogger<LlamaServerManager>>());
+            }
+
+            // 設定ファイルの検証を通らなかった組み合わせ（https の URL など）では起動せず、繋ぐだけにする
+            return llm.ManageServer && LlmEndpoint.TryParse(llm.Endpoint, out _) is { } endpoint && LlmEndpoint.CanStartServerAt(endpoint)
+                ? new AutoStartLlamaServer(config, sp.GetRequiredService<ICredentialStore>(), paths.RunDirectory, time,
+                    sp.GetRequiredService<ILoggerFactory>())
+                : new ExternalLlamaServer(config, sp.GetRequiredService<ICredentialStore>(), time,
+                    sp.GetRequiredService<ILogger<ExternalLlamaServer>>());
         });
         services.AddSingleton(sp => (ILlamaEndpoint)sp.GetRequiredService<ILlmRuntime>());
         services.AddSingleton<IMailClassifier>(sp => new LlamaClassifier(

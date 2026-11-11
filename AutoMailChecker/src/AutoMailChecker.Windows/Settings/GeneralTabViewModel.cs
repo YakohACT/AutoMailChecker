@@ -106,6 +106,8 @@ public sealed class GeneralTabViewModel : EditableObject
     private bool _errorPopup;
     private string _retentionDaysText;
     private string _endpointText;
+    private bool _manageServer;
+    private string _serverExePath;
     private string _modelPath;
     private bool? _hasApiKey;
     private Func<string>? _llmTestResult;
@@ -136,6 +138,8 @@ public sealed class GeneralTabViewModel : EditableObject
         _errorPopup = config.Policy.ErrorPopup;
         _retentionDaysText = config.History.RetentionDays.ToString(CultureInfo.InvariantCulture);
         _endpointText = config.Llm.Endpoint;
+        _manageServer = config.Llm.ManageServer;
+        _serverExePath = config.Llm.ServerExe;
         _modelPath = config.Llm.Model;
         RefreshApiKeyStatus();
         _selectedLanguage = LanguageChoices.FirstOrDefault(c => c.Value == config.Ui.Language) ?? LanguageChoices[0];
@@ -154,6 +158,13 @@ public sealed class GeneralTabViewModel : EditableObject
                 ModelPath = path;
             }
         });
+        BrowseServerExeCommand = new RelayCommand(() =>
+        {
+            if (_dialogs.PickServerExe(ServerExePath) is { } path)
+            {
+                ServerExePath = path;
+            }
+        });
         OpenLogFolderCommand = new RelayCommand(() => _dialogs.OpenFolder(_logDirectory));
     }
 
@@ -167,6 +178,7 @@ public sealed class GeneralTabViewModel : EditableObject
     public ICommand RegisterApiKeyCommand { get; }
     public ICommand TestLlmCommand { get; }
     public ICommand BrowseModelCommand { get; }
+    public ICommand BrowseServerExeCommand { get; }
     public ICommand OpenLogFolderCommand { get; }
 
     public AccountEditViewModel? SelectedAccount { get => _selectedAccount; set => SetProperty(ref _selectedAccount, value); }
@@ -219,6 +231,8 @@ public sealed class GeneralTabViewModel : EditableObject
             if (SetProperty(ref _endpointText, value))
             {
                 OnPropertyChanged(nameof(UsesModelFile));
+                OnPropertyChanged(nameof(HasEndpoint));
+                OnPropertyChanged(nameof(StartsServer));
             }
         }
     }
@@ -226,7 +240,32 @@ public sealed class GeneralTabViewModel : EditableObject
     /// <summary>接続先 URL が空なら、モデルファイルを使う（アプリが llama-server を起動する）。</summary>
     public bool UsesModelFile => string.IsNullOrWhiteSpace(EndpointText);
 
-    /// <summary>モデルファイル。接続先 URL が空のときだけ使う。変更は再起動が必要。</summary>
+    /// <summary>接続先 URL があるか（あるときだけ「起動していなければアプリが起動する」を選べる）。</summary>
+    public bool HasEndpoint => !UsesModelFile;
+
+    /// <summary>
+    /// 接続先 URL にサーバーが起動していなければ、アプリが llama-server を起動する（完全停止・アプリ終了のときに終了する）。
+    /// 変更は再起動が必要。
+    /// </summary>
+    public bool ManageServer
+    {
+        get => _manageServer;
+        set
+        {
+            if (SetProperty(ref _manageServer, value))
+            {
+                OnPropertyChanged(nameof(StartsServer));
+            }
+        }
+    }
+
+    /// <summary>アプリが llama-server を起動することがあるか（llama-server.exe とモデルファイルの欄を使う）。</summary>
+    public bool StartsServer => UsesModelFile || ManageServer;
+
+    /// <summary>llama-server.exe の場所。アプリが llama-server を起動するときに使う。変更は再起動が必要。</summary>
+    public string ServerExePath { get => _serverExePath; set => SetProperty(ref _serverExePath, value); }
+
+    /// <summary>モデルファイル。アプリが llama-server を起動するときに使う。変更は再起動が必要。</summary>
     public string ModelPath { get => _modelPath; set => SetProperty(ref _modelPath, value); }
 
     public string ApiKeyStatus => _hasApiKey switch

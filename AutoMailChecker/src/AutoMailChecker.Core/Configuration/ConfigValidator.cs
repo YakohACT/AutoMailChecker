@@ -265,26 +265,34 @@ public static partial class ConfigValidator
     {
         if (llm.UsesEndpoint)
         {
-            // 起動済みのサーバーに繋ぐ。llama-server.exe とモデルファイルは使わない
-            if (LlmEndpoint.TryParse(llm.Endpoint, out var error) is null)
+            // 起動済みのサーバーに繋ぐ。llm.manageServer がオンなら、起動していないときにアプリがその URL のポートで起動する
+            var baseAddress = LlmEndpoint.TryParse(llm.Endpoint, out var error);
+            if (baseAddress is null)
             {
                 Add(issues, ConfigSection.Llm, "llm.endpoint", error!);
             }
+            else if (llm.ManageServer && !LlmEndpoint.CanStartServerAt(baseAddress))
+            {
+                Add(issues, ConfigSection.Llm, "llm.endpoint", Translate.Text(
+                    "アプリが llama-server を起動するときは、接続先 URL を http://127.0.0.1:8080 の形（http、127.0.0.1 か localhost、ポートのあとに何も付けない）で指定してください。",
+                    "When the app starts llama-server, specify the server URL in the form http://127.0.0.1:8080 (http, 127.0.0.1 or localhost, nothing after the port)."));
+            }
         }
-        else
+
+        if (llm.StartsServer)
         {
             if (string.IsNullOrWhiteSpace(llm.ServerExe))
             {
                 Add(issues, ConfigSection.Llm, "llm.serverExe", Translate.Text(
-                    "接続先 URL を使わないときは、llama-server.exe の場所を指定してください。",
-                    "When no server URL is set, specify the location of llama-server.exe."));
+                    "アプリが llama-server を起動するときは、llama-server.exe の場所を指定してください。",
+                    "When the app starts llama-server, specify the location of llama-server.exe."));
             }
 
             if (string.IsNullOrWhiteSpace(llm.Model))
             {
                 Add(issues, ConfigSection.Llm, "llm.model", Translate.Text(
-                    "接続先 URL を使わないときは、モデルファイルを指定してください。",
-                    "When no server URL is set, specify the model file."));
+                    "アプリが llama-server を起動するときは、モデルファイルを指定してください。",
+                    "When the app starts llama-server, specify the model file."));
             }
         }
 

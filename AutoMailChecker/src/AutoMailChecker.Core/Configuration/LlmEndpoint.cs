@@ -47,4 +47,14 @@ public static class LlmEndpoint
         error = null;
         return new UriBuilder(uri) { Path = path + "/" }.Uri;
     }
+
+    /// <summary>
+    /// アプリが llama-server を起動できる接続先か。llama-server は 127.0.0.1 の指定したポートで待ち受けるので、
+    /// http://127.0.0.1:ポート か http://localhost:ポート の形（https や途中のパスなし）に限る。
+    /// </summary>
+    /// <param name="baseAddress"><see cref="TryParse"/> が返した基点</param>
+    public static bool CanStartServerAt(Uri baseAddress) =>
+        baseAddress.Scheme == Uri.UriSchemeHttp
+        && baseAddress.AbsolutePath == "/"
+        && (baseAddress.Host == "127.0.0.1" || baseAddress.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase));
 }

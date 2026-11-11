@@ -29,6 +29,7 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(10);
 
     private readonly LlmConfig _startup;
+    private readonly bool _portFromEndpoint;
     private readonly IConfigProvider _config;
     private readonly string _keyFile;
     private readonly TimeProvider _time;
@@ -42,10 +43,13 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
     private volatile bool _stopping;
     private TaskCompletionSource _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public LlamaServerManager(IConfigProvider config, string runDirectory, TimeProvider time, ILogger<LlamaServerManager> logger)
+    /// <param name="port">待ち受けるポート。null なら設定の llm.port（接続先 URL のポートで起動するときに指定する）</param>
+    public LlamaServerManager(
+        IConfigProvider config, string runDirectory, TimeProvider time, ILogger<LlamaServerManager> logger, int? port = null)
     {
         _config = config;
-        _startup = config.Current.Llm;
+        _portFromEndpoint = port is not null;
+        _startup = port is { } value ? config.Current.Llm with { Port = value } : config.Current.Llm;
         _keyFile = Path.Combine(runDirectory, "llama.key");
         _time = time;
         _logger = logger;
@@ -313,8 +317,11 @@ public sealed class LlamaServerManager : ILlmRuntime, ILlamaEndpoint, IDisposabl
         }
         catch (SocketException)
         {
-            throw new LlmStartException(
-                Translate.Text(
+            throw new LlmStartException(_portFromEndpoint
+                ? Translate.Text(
+                    $"ポート {_startup.Port} はほかのプログラムが使っています。そのプログラムを終了するか、接続先 URL のポートを変えてください。",
+                    $"Port {_startup.Port} is used by another program. Exit that program or change the port in the server URL.")
+                : Translate.Text(
                     $"ポート {_startup.Port} はほかのプログラムが使っています。残っている llama-server を終了するか、llm.port を変えてください。",
                     $"Port {_startup.Port} is used by another program. Exit any remaining llama-server or change llm.port."));
         }

@@ -23,6 +23,9 @@ public interface ISettingsDialogs
 
     string? PickModelFile(string? current);
 
+    /// <summary>llama-server.exe の場所を選ぶ。取り消したら null。</summary>
+    string? PickServerExe(string? current);
+
     ProcessInfo? PickRunningApp(IReadOnlyList<ProcessInfo> processes);
 
     void ShowRejudge(RejudgeViewModel viewModel);
@@ -79,11 +82,19 @@ public sealed class SettingsDialogs(Func<Window> owner) : ISettingsDialogs
         return dialog.ShowDialog(owner()) == true ? dialog.FolderName : null;
     }
 
-    public string? PickModelFile(string? current)
+    public string? PickModelFile(string? current) => PickFile(
+        Translate.Text("モデル (*.gguf)|*.gguf", "Models (*.gguf)|*.gguf"),
+        Translate.Text("モデルファイルを選ぶ", "Choose a model file"), current);
+
+    public string? PickServerExe(string? current) => PickFile(
+        Translate.Text("llama-server (llama-server.exe)|llama-server.exe|実行ファイル (*.exe)|*.exe",
+            "llama-server (llama-server.exe)|llama-server.exe|Programs (*.exe)|*.exe"),
+        Translate.Text("llama-server.exe を選ぶ", "Choose llama-server.exe"), current);
+
+    /// <summary>ファイルを選ぶ。いまの値があれば、そのフォルダーから始める。</summary>
+    private string? PickFile(string filter, string title, string? current)
     {
-        var dialog = new OpenFileDialog { Filter = Translate.Text(
-            "モデル (*.gguf)|*.gguf",
-            "Models (*.gguf)|*.gguf"), Title = Translate.Text("モデルファイルを選ぶ", "Choose a model file") };
+        var dialog = new OpenFileDialog { Filter = filter, Title = title };
         if (!string.IsNullOrWhiteSpace(current) && Path.GetDirectoryName(current) is { } directory && Directory.Exists(directory))
         {
             dialog.InitialDirectory = directory;
