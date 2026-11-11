@@ -104,7 +104,13 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ErrorPopup = GeneralTab.ErrorPopup,
             },
             History = current.History with { RetentionDays = ParseOr(GeneralTab.RetentionDaysText, current.History.RetentionDays) },
-            Llm = current.Llm with { Endpoint = GeneralTab.EndpointText.Trim(), Model = GeneralTab.ModelPath.Trim() },
+            Llm = current.Llm with
+            {
+                Endpoint = GeneralTab.EndpointText.Trim(),
+                ManageServer = GeneralTab.ManageServer,
+                ServerExe = GeneralTab.ServerExePath.Trim(),
+                Model = GeneralTab.ModelPath.Trim(),
+            },
             Pause = current.Pause with
             {
                 DmmGameFolder = string.IsNullOrWhiteSpace(PauseTab.DmmGameFolder) ? null : PauseTab.DmmGameFolder.Trim(),
@@ -272,6 +278,9 @@ public sealed partial class SettingsViewModel : ObservableObject
             case "llm.endpoint":
                 GeneralTab.AddError(nameof(GeneralTab.EndpointText), message);
                 return Translate.Text($"AI の接続先 URL: {message}", $"AI server URL: {message}");
+            case "llm.serverExe":
+                GeneralTab.AddError(nameof(GeneralTab.ServerExePath), message);
+                return Translate.Text($"llama-server.exe の場所: {message}", $"Location of llama-server.exe: {message}");
             case "llm.model":
                 GeneralTab.AddError(nameof(GeneralTab.ModelPath), message);
                 return Translate.Text($"モデルファイル: {message}", $"Model file: {message}");

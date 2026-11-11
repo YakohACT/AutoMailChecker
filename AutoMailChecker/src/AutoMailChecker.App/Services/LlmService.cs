@@ -11,6 +11,8 @@ namespace AutoMailChecker.Services;
 /// 切り替えは処理中の1通が終わってから行う。起動に失敗したり、落ち続けたりしたら判定を保留して知らせ、30 分後にもう一度試す。
 /// 接続先 URL の起動済みサーバーを使うときは、起動・終了の代わりに繋ぐ・要求を止めるだけにし、繋がらなければ 1 分後にもう一度試す
 /// （サーバーを起動するのは利用者なので、起動したらすぐ使えるようにする）。
+/// 接続先 URL にサーバーがいなければアプリが起動する設定（llm.manageServer）では、そのとき使っているほうに合わせる
+/// （アプリが起動した llama-server は完全停止で終了し、利用者のサーバーには要求を止めるだけ）。
 /// </summary>
 public sealed class LlmService(
     ILlmRuntime server, IRunModeSource runModes, ProcessingGate gate, QueueSignal queueSignal,

@@ -95,6 +95,17 @@ public sealed record LlmConfig
     [JsonIgnore]
     public bool UsesEndpoint => !string.IsNullOrWhiteSpace(Endpoint);
 
+    /// <summary>
+    /// 接続先 URL にサーバーが起動していなければ、アプリが <see cref="ServerExe"/> と <see cref="Model"/> で
+    /// llama-server をその URL のポートで起動し、完全停止・アプリ終了のときに終了する。
+    /// すでに起動しているサーバーがあればそれを使い、終了しない。接続先 URL が空のときは関係しない（常にアプリが起動する）。
+    /// </summary>
+    public bool ManageServer { get; init; }
+
+    /// <summary>アプリが llama-server を起動することがあるか（llama-server.exe とモデルファイルが要る）。</summary>
+    [JsonIgnore]
+    public bool StartsServer => !UsesEndpoint || ManageServer;
+
     public string ServerExe { get; init; } = "";
     public string Model { get; init; } = "";
     public int Port { get; init; } = 8089;

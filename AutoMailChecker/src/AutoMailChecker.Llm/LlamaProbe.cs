@@ -55,6 +55,22 @@ internal sealed class LlamaProbe(HttpMessageHandler handler) : IDisposable
         }
     }
 
+    /// <summary>
+    /// 接続先で何かが待ち受けているか。HTTP の応答があれば、読み込み中（503）やエラーでも true。繋がらない・時間切れは false。
+    /// </summary>
+    public async Task<bool> IsListeningAsync(Uri baseAddress, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await GetAsync(baseAddress, "health", apiKey: null, ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (ProbeException)
+        {
+            return false;
+        }
+    }
+
     public void Dispose() => _http.Dispose();
 
     /// <summary>/v1/models の最初のモデルの名前。ファイルのパスなら拡張子なしのファイル名にする。</summary>
